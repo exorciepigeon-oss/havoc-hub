@@ -104,24 +104,40 @@ UI.Host=mk("Frame",{Size=UDim2.new(1,-SIDE_W,1,-40),Position=UDim2.new(0,SIDE_W,
 UI.Tabs={} UI.TabY=12
 UI.CurrentTab=nil
 
--- Icones auto par nom de tab
+-- Icones auto par nom de tab (fallback texte si asset absent)
 local iconMap={esp="◉",world="◈",weapon="▲",player="P",misc="M",inventory="i",config="*"}
+-- Icons map: si l'asset PNG est downloade par le loader, on l'utilise (ImageLabel)
+local Icons=getgenv().HAVOC_ICONS or {}
+-- Loot.lua cree le tab "world", donc on partage l'icone
+Icons.loot=Icons.world
+Icons.inventory=Icons.inventory or Icons.misc
+Icons.player=Icons.player or Icons.misc
 
 function UI.ShowTab(n) for k,tt in pairs(UI.Tabs) do local a=(k==n) tt.c.Visible=a
-    if a then tt.b.BackgroundColor3=T.BG3 tt.line.Visible=true tt.icon.TextColor3=T.ACC UI.CurrentTab=n
-        -- transition anim: slide from left + fade
+    if a then tt.b.BackgroundColor3=T.BG3 tt.line.Visible=true
+        if tt.isImage then tt.icon.ImageColor3=T.ACC else tt.icon.TextColor3=T.ACC end
+        UI.CurrentTab=n
         tt.c.Position=UDim2.new(0,-30,0,0)
         Tween:Create(tt.c,TweenInfo.new(0.25,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Position=UDim2.new(0,0,0,0)}):Play()
-    else tt.b.BackgroundColor3=T.BG1 tt.line.Visible=false tt.icon.TextColor3=T.TXT2 end
+    else tt.b.BackgroundColor3=T.BG1 tt.line.Visible=false
+        if tt.isImage then tt.icon.ImageColor3=T.TXT2 else tt.icon.TextColor3=T.TXT2 end
+    end
 end end
 
 function UI.AddTab(name,label,customIcon)
     local c=mk("Frame",{Size=UDim2.new(1,0,1,0),BackgroundTransparency=1,Visible=false},UI.Host)
     local b=mk("TextButton",{Size=UDim2.new(1,-4,0,44),Position=UDim2.new(0,2,0,UI.TabY),BackgroundColor3=T.BG1,Text="",BorderSizePixel=0,AutoButtonColor=false},UI.Sidebar)
     local line=mk("Frame",{Size=UDim2.new(0,2,1,0),Position=UDim2.new(0,0,0,0),BackgroundColor3=T.ACC,BorderSizePixel=0,Visible=false},b)
-    local ico=customIcon or iconMap[name] or "?"
-    local iconLbl=mk("TextLabel",{Size=UDim2.new(1,0,1,0),BackgroundTransparency=1,Text=ico,TextColor3=T.TXT2,Font=Enum.Font.GothamBold,TextSize=18},b)
-    UI.Tabs[name]={b=b,c=c,line=line,icon=iconLbl,label=label}
+    local iconLbl
+    local iconAsset=Icons[name]
+    if iconAsset then
+        -- ImageLabel avec tint (violet quand actif, gris quand inactif)
+        iconLbl=mk("ImageLabel",{Size=UDim2.new(0,24,0,24),Position=UDim2.new(0.5,-12,0.5,-12),BackgroundTransparency=1,Image=iconAsset,ImageColor3=T.TXT2,ScaleType=Enum.ScaleType.Fit,BorderSizePixel=0},b)
+    else
+        local ico=customIcon or iconMap[name] or "?"
+        iconLbl=mk("TextLabel",{Size=UDim2.new(1,0,1,0),BackgroundTransparency=1,Text=ico,TextColor3=T.TXT2,Font=Enum.Font.GothamBold,TextSize=18},b)
+    end
+    UI.Tabs[name]={b=b,c=c,line=line,icon=iconLbl,label=label,isImage=iconAsset~=nil}
     b.MouseButton1Click:Connect(function() UI.ShowTab(name) end)
     UI.TabY=UI.TabY+48
     if not UI.CurrentTab then UI.ShowTab(name) end
