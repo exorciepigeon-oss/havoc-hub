@@ -1,4 +1,4 @@
--- HAVOC HUB : ESP v3 (BindToRenderStep after camera tilt)
+-- HAVOC HUB : ESP v4 (RenderPriority.Last for perfect sync)
 local Hub=_G.HavocHub if not Hub then return end
 task.spawn(function()
     while not Hub.UI or not Hub.UI.AddTab do task.wait(0.05) end
@@ -37,14 +37,16 @@ task.spawn(function()
     UI.ToggleColor(cESP,RX,158,COLW,"Name + Weapon","N_NAME",true,"N_NAME_C",Color3.fromRGB(255,255,255),"N_NAME_A",1)
     UI.Stepper(cESP,0,206,COLW*2+8,"Distance","MAX_DIST",3400,100,100,8000)
 
-    -- FIX: BindToRenderStep priorite Camera+1 = tourne APRES le tilt Q/D
+    -- FIX: RenderPriority.Last = tourne APRES tout (character updates inclus)
     pcall(function() RunS:UnbindFromRenderStep("HubESP") end)
-    RunS:BindToRenderStep("HubESP",Enum.RenderPriority.Camera.Value+1,function()
+    RunS:BindToRenderStep("HubESP",Enum.RenderPriority.Last.Value,function()
         if Hub.G.HAVOC_STOP then return end
         pcall(function()
             local list=Hub.Enemies() local seen={}
             for _,info in pairs(list) do
                 local m,hrp,hd,hum=info.m,info.hrp,info.hd,info.hum seen[m]=true local e=ensure(m)
+                -- Utilise CFrame.Position (position visuelle au moment du rendu)
+                local hdPos=hd.CFrame.Position local hrpPos=hrp.CFrame.Position
                 local pl=Hub.IsPlayer(m)
                 local T_BOX=Hub.Get(pl and "P_BOX" or "N_BOX",true) local T_SKEL=Hub.Get(pl and "P_SKEL" or "N_SKEL",true)
                 local T_CHAMS=Hub.Get(pl and "P_CHAMS" or "N_CHAMS",true) local T_HP=Hub.Get(pl and "P_HP" or "N_HP",true) local T_NAME=Hub.Get(pl and "P_NAME" or "N_NAME",true)
@@ -54,8 +56,8 @@ task.spawn(function()
                 local C_HP=Hub.Get(pl and "P_HP_C" or "N_HP_C",Color3.fromRGB(0,255,80)) local A_HP=Hub.Get(pl and "P_HP_A" or "N_HP_A",1)
                 local C_NAME=Hub.Get(pl and "P_NAME_C" or "N_NAME_C",Color3.new(1,1,1)) local A_NAME=Hub.Get(pl and "P_NAME_A" or "N_NAME_A",1)
                 if T_CHAMS then eHL(m,C_CHAMS,A_CHAMS) else kHL(m) end
-                local Tp=cam:WorldToViewportPoint(hd.Position+Vector3.new(0,1,0))
-                local Bp=cam:WorldToViewportPoint(hrp.Position-Vector3.new(0,3,0))
+                local Tp=cam:WorldToViewportPoint(hdPos+Vector3.new(0,1,0))
+                local Bp=cam:WorldToViewportPoint(hrpPos-Vector3.new(0,3,0))
                 if Tp.Z>0 and Bp.Z>0 then
                     local ht=math.abs(Bp.Y-Tp.Y) local w=ht*0.5 local cx=(Tp.X+Bp.X)/2 local topY=math.min(Tp.Y,Bp.Y)
                     if T_BOX then e.box.Position=Vector2.new(cx-w/2,topY) e.box.Size=Vector2.new(w,ht) e.box.Color=C_BOX e.box.Transparency=A_BOX e.box.Visible=true else e.box.Visible=false end
@@ -71,7 +73,9 @@ task.spawn(function()
                 else hide(m) end
                 if T_SKEL then local bn=bones(m)
                     for i,b in ipairs(bn) do local a=m:FindFirstChild(b[1]) local d=m:FindFirstChild(b[2]) local ln=e.lines[i]
-                        if ln and a and d then local A=cam:WorldToViewportPoint(a.Position) local D=cam:WorldToViewportPoint(d.Position)
+                        if ln and a and d then
+                            local A=cam:WorldToViewportPoint(a.CFrame.Position)
+                            local D=cam:WorldToViewportPoint(d.CFrame.Position)
                             if A.Z>0 and D.Z>0 then ln.From=Vector2.new(A.X,A.Y) ln.To=Vector2.new(D.X,D.Y) ln.Color=C_SKEL ln.Transparency=A_SKEL ln.Visible=true else ln.Visible=false end
                         elseif ln then ln.Visible=false end end
                     for i=#bn+1,14 do if e.lines[i] then e.lines[i].Visible=false end end
@@ -84,5 +88,5 @@ task.spawn(function()
     Hub.On("shutdown",function() for m in pairs(E) do rem(m) end pcall(function() RunS:UnbindFromRenderStep("HubESP") end) end)
     UI.ShowTab("esp")
     Hub.RegisterModule("esp",{Start=function() end})
-    print("[Hub ESP v3] loaded")
+    print("[Hub ESP v4] loaded")
 end)
