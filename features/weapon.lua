@@ -105,15 +105,20 @@ task.spawn(function()
             local a1,a2,a3=select(1,...),select(2,...),select(3,...)
             if Hub.Get("SILENT_AIM",false) then
                 local head=cached.head local hpos=cached.pos
+                if Hub.Get("DEBUG_SHOT",false) then
+                    warn("[SHOT DEBUG] orig dir:",a3,"| cached head:",head and head.Parent and head.Parent.Name or "NIL","| cached pos:",hpos)
+                end
                 if head and hpos then
                     local dir=hpos-a2
                     if dir.Magnitude>=0.1 then
                         local nd=dir.Unit
                         if nd.X==nd.X then
+                            if Hub.Get("DEBUG_SHOT",false) then warn("[SHOT DEBUG] rewritten dir:",nd) end
                             return oldNC(self,a1,a2,nd)
                         end
                     end
                 end
+                if Hub.Get("DEBUG_SHOT",false) then warn("[SHOT DEBUG] silent aim SKIPPED (no target in FOV)") end
             end
             if Hub.Get("NO_SPREAD",false) then
                 local ok3,camDir=pcall(function() return cam.CFrame.LookVector end)
@@ -134,8 +139,9 @@ task.spawn(function()
     UI.Row(cW,RX,34,COLW,"No Recoil",function() return Hub.Get("NO_RECOIL",false) end,function(v) Hub.Set("NO_RECOIL",v) end)
     UI.Row(cW,LX,68,COLW,"No Spread",function() return Hub.Get("NO_SPREAD",false) end,function(v) Hub.Set("NO_SPREAD",v) end)
     UI.Row(cW,RX,68,COLW,"No Sway",function() return Hub.Get("NO_SWAY",false) end,function(v) Hub.Set("NO_SWAY",v) end)
-    UI.Stepper(cW,0,102,COLW*2+8,"FOV Size (px)","FOV_SIZE",150,10,20,600)
-    UI.Step(cW,0,138,COLW*2+8,"Aim Smooth x100",function() return math.floor(Hub.Get("AIM_SMOOTH",0.35)*100) end,function(v) Hub.Set("AIM_SMOOTH",v/100) end,5,5,100)
+    UI.Row(cW,LX,102,COLW,"Silent Aim Debug",function() return Hub.Get("DEBUG_SHOT",false) end,function(v) Hub.Set("DEBUG_SHOT",v) end)
+    UI.Stepper(cW,0,138,COLW*2+8,"FOV Size (px)","FOV_SIZE",150,10,20,600)
+    UI.Step(cW,0,174,COLW*2+8,"Aim Smooth x100",function() return math.floor(Hub.Get("AIM_SMOOTH",0.35)*100) end,function(v) Hub.Set("AIM_SMOOTH",v/100) end,5,5,100)
 
     Hub.On("shutdown",function() pcall(function() fovCirc:Remove() RunS:UnbindFromRenderStep("HubAim") end) end)
     Hub.RegisterModule("weapon",{Start=function() end})
