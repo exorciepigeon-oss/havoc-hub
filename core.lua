@@ -1,9 +1,8 @@
--- HAVOC HUB CORE v2 (unsafe keys never persist)
+-- HAVOC HUB CORE v3 (namecall passthrough safe for nil args)
 _G.HavocHub=_G.HavocHub or {}
 local Hub=_G.HavocHub
 Hub.Version="v13" Hub.Modules={} Hub.Config={} Hub.CFG_FILE="havoc_hub_cfg.json"
 Hub.Signals={} Hub.NamecallHooks={} Hub.G=getgenv()
--- Toggles combat/dangereux qui NE persistent JAMAIS entre exec
 Hub.UnsafeKeys={AIMBOT=true,SILENT_AIM=true,NO_RECOIL=true,NO_SPREAD=true,TRIGGER=true,NO_SWAY=true}
 
 Hub.Players=game:GetService("Players") Hub.RunS=game:GetService("RunService")
@@ -42,7 +41,6 @@ function Hub.LoadConfig()
             end
         end
     end)
-    -- Force unsafe keys OFF regardless of disk
     for k in pairs(Hub.UnsafeKeys) do Hub.Config[k]=false end
 end
 function Hub.SaveConfig()
@@ -93,27 +91,33 @@ function Hub.Enemies(maxDist)
     return byId
 end
 
+-- FIXED NAMECALL: passthrough SAFE pour args avec nil
 if not Hub._namecallInstalled then
     Hub._namecallInstalled=true
     local mt=getrawmetatable(game)
     local old=mt.__namecall
     setreadonly(mt,false)
     mt.__namecall=newcclosure(function(self,...)
-        if Hub.G.HAVOC_STOP then return old(self,...) end
+        -- FAST PATH: si aucun hook enregistre ou stop => passthrough direct (preserve nils)
+        if Hub.G.HAVOC_STOP or #Hub.NamecallHooks==0 then return old(self,...) end
         local method=getnamecallmethod()
-        local args={...}
+        -- Pack args avec length preservee (table.pack conserve les nils via .n)
+        local packed=table.pack(...)
+        local modified=nil
         for _,hook in ipairs(Hub.NamecallHooks) do
-            local ok,res=pcall(hook,self,method,args)
+            local ok,res=pcall(hook,self,method,packed)
             if ok and res=="BLOCK" then return end
-            if ok and type(res)=="table" then args=res end
+            if ok and type(res)=="table" then modified=res end
         end
-        return old(self,unpack(args))
+        -- Si aucun hook n'a modifie => passthrough direct sans reconstruction
+        if not modified then return old(self,...) end
+        -- Sinon unpack propre avec la vraie longueur
+        return old(self,table.unpack(modified,1,modified.n or #modified))
     end)
     setreadonly(mt,true)
 end
 function Hub.AddNamecallHook(fn) table.insert(Hub.NamecallHooks,fn) end
 
--- LoadConfig NOW so features build UI with clean state
 Hub.LoadConfig()
 
 function Hub.Start()
