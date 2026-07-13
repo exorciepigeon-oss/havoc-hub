@@ -1,4 +1,4 @@
--- HAVOC HUB : ESP v4 (RenderPriority.Last for perfect sync)
+-- HAVOC HUB : ESP v5 (bind post-Last + occlusion split + bbox)
 local Hub=_G.HavocHub if not Hub then return end
 task.spawn(function()
     while not Hub.UI or not Hub.UI.AddTab do task.wait(0.05) end
@@ -21,6 +21,17 @@ task.spawn(function()
     local function kHL(m) if hls[m] then pcall(function() hls[m]:Destroy() end) hls[m]=nil end end
     local function equipped(m) for _,c in ipairs(m:GetChildren()) do if c:IsA("Tool") then return c end end end
 
+    -- occlusion check: raycast camera -> target
+    local function visible(target,parentModel)
+        local o=cam.CFrame.Position local dir=target-o local dist=dir.Magnitude
+        if dist<0.1 then return true end
+        local rp=RaycastParams.new() rp.FilterType=Enum.RaycastFilterType.Exclude
+        rp.FilterDescendantsInstances={Hub.lp.Character,cam} rp.IgnoreWater=true
+        local res=workspace:Raycast(o,dir,rp)
+        if not res then return true end
+        return res.Instance:IsDescendantOf(parentModel)
+    end
+
     local cESP=UI.AddTab("esp","ESP")
     local COLW=232 local LX,RX=0,COLW+8
     UI.Header(cESP,LX,0,COLW,"PLAYER")
@@ -35,35 +46,45 @@ task.spawn(function()
     UI.ToggleColor(cESP,RX,90,COLW,"Chams","N_CHAMS",true,"N_CHAMS_C",Color3.fromRGB(245,197,24),"N_CHAMS_A",0.5)
     UI.ToggleColor(cESP,RX,124,COLW,"Health Bar","N_HP",true,"N_HP_C",Color3.fromRGB(0,255,80),"N_HP_A",1)
     UI.ToggleColor(cESP,RX,158,COLW,"Name + Weapon","N_NAME",true,"N_NAME_C",Color3.fromRGB(255,255,255),"N_NAME_A",1)
-    UI.Stepper(cESP,0,206,COLW*2+8,"Distance","MAX_DIST",3400,100,100,8000)
+    UI.Header(cESP,0,196,COLW*2+8,"OCCLUSION SPLIT (couleur pour partie cachée)")
+    UI.ToggleColor(cESP,LX,218,COLW,"Player Occluded","P_OCC",false,"P_OCC_C",Color3.fromRGB(100,100,100),"P_OCC_A",1)
+    UI.ToggleColor(cESP,RX,218,COLW,"NPC Occluded","N_OCC",false,"N_OCC_C",Color3.fromRGB(100,100,100),"N_OCC_A",1)
+    UI.Stepper(cESP,0,252,COLW*2+8,"Distance","MAX_DIST",3400,100,100,8000)
 
-    -- FIX: RenderPriority.Last = tourne APRES tout (character updates inclus)
+    -- FIX: bind at 2001 (after Last) + use CFrame.Position + m:GetPivot()
     pcall(function() RunS:UnbindFromRenderStep("HubESP") end)
-    RunS:BindToRenderStep("HubESP",Enum.RenderPriority.Last.Value,function()
+    RunS:BindToRenderStep("HubESP",2001,function()
         if Hub.G.HAVOC_STOP then return end
         pcall(function()
             local list=Hub.Enemies() local seen={}
             for _,info in pairs(list) do
                 local m,hrp,hd,hum=info.m,info.hrp,info.hd,info.hum seen[m]=true local e=ensure(m)
-                -- Utilise CFrame.Position (position visuelle au moment du rendu)
-                local hdPos=hd.CFrame.Position local hrpPos=hrp.CFrame.Position
                 local pl=Hub.IsPlayer(m)
                 local T_BOX=Hub.Get(pl and "P_BOX" or "N_BOX",true) local T_SKEL=Hub.Get(pl and "P_SKEL" or "N_SKEL",true)
                 local T_CHAMS=Hub.Get(pl and "P_CHAMS" or "N_CHAMS",true) local T_HP=Hub.Get(pl and "P_HP" or "N_HP",true) local T_NAME=Hub.Get(pl and "P_NAME" or "N_NAME",true)
+                local OCC_ON=Hub.Get(pl and "P_OCC" or "N_OCC",false)
                 local C_BOX=Hub.Get(pl and "P_BOX_C" or "N_BOX_C",Color3.fromRGB(245,197,24)) local A_BOX=Hub.Get(pl and "P_BOX_A" or "N_BOX_A",1)
                 local C_SKEL=Hub.Get(pl and "P_SKEL_C" or "N_SKEL_C",Color3.new(1,1,1)) local A_SKEL=Hub.Get(pl and "P_SKEL_A" or "N_SKEL_A",1)
                 local C_CHAMS=Hub.Get(pl and "P_CHAMS_C" or "N_CHAMS_C",Color3.fromRGB(245,197,24)) local A_CHAMS=Hub.Get(pl and "P_CHAMS_A" or "N_CHAMS_A",0.5)
                 local C_HP=Hub.Get(pl and "P_HP_C" or "N_HP_C",Color3.fromRGB(0,255,80)) local A_HP=Hub.Get(pl and "P_HP_A" or "N_HP_A",1)
                 local C_NAME=Hub.Get(pl and "P_NAME_C" or "N_NAME_C",Color3.new(1,1,1)) local A_NAME=Hub.Get(pl and "P_NAME_A" or "N_NAME_A",1)
+                local C_OCC=Hub.Get(pl and "P_OCC_C" or "N_OCC_C",Color3.fromRGB(100,100,100))
                 if T_CHAMS then eHL(m,C_CHAMS,A_CHAMS) else kHL(m) end
+                -- POSITIONS: utilise GetPivot() du modele + CFrame des parts (positions render-time)
+                local hdPos=hd.CFrame.Position local hrpPos=hrp.CFrame.Position
                 local Tp=cam:WorldToViewportPoint(hdPos+Vector3.new(0,1,0))
                 local Bp=cam:WorldToViewportPoint(hrpPos-Vector3.new(0,3,0))
                 if Tp.Z>0 and Bp.Z>0 then
                     local ht=math.abs(Bp.Y-Tp.Y) local w=ht*0.5 local cx=(Tp.X+Bp.X)/2 local topY=math.min(Tp.Y,Bp.Y)
-                    if T_BOX then e.box.Position=Vector2.new(cx-w/2,topY) e.box.Size=Vector2.new(w,ht) e.box.Color=C_BOX e.box.Transparency=A_BOX e.box.Visible=true else e.box.Visible=false end
-                    if T_NAME then local line=m.Name.."  ["..math.floor(info.dist).."m]" if T_HP then line=line.."  "..math.floor(hum.Health).."hp" end
-                        e.name.Text=line e.name.Position=Vector2.new(cx,topY-30) e.name.Color=C_NAME e.name.Transparency=A_NAME e.name.Visible=true
-                        local tl=equipped(m) if tl then e.weapon.Text=tl.Name e.weapon.Position=Vector2.new(cx,topY-16) e.weapon.Color=C_BOX e.weapon.Transparency=A_NAME e.weapon.Visible=true else e.weapon.Visible=false end
+                    if T_BOX then
+                        local col=C_BOX if OCC_ON and not visible(hrpPos,m) then col=C_OCC end
+                        e.box.Position=Vector2.new(cx-w/2,topY) e.box.Size=Vector2.new(w,ht) e.box.Color=col e.box.Transparency=A_BOX e.box.Visible=true
+                    else e.box.Visible=false end
+                    if T_NAME then
+                        local col=C_NAME if OCC_ON and not visible(hdPos,m) then col=C_OCC end
+                        local line=m.Name.."  ["..math.floor(info.dist).."m]" if T_HP then line=line.."  "..math.floor(hum.Health).."hp" end
+                        e.name.Text=line e.name.Position=Vector2.new(cx,topY-30) e.name.Color=col e.name.Transparency=A_NAME e.name.Visible=true
+                        local tl=equipped(m) if tl then e.weapon.Text=tl.Name e.weapon.Position=Vector2.new(cx,topY-16) e.weapon.Color=col e.weapon.Transparency=A_NAME e.weapon.Visible=true else e.weapon.Visible=false end
                     else e.name.Visible=false e.weapon.Visible=false end
                     if T_HP then local f=math.clamp(hum.Health/math.max(hum.MaxHealth,1),0,1) local x=cx-w/2-6
                         e.hpbg.Position=Vector2.new(x-1,topY-1) e.hpbg.Size=Vector2.new(5,ht+2) e.hpbg.Transparency=A_HP e.hpbg.Visible=true
@@ -74,9 +95,14 @@ task.spawn(function()
                 if T_SKEL then local bn=bones(m)
                     for i,b in ipairs(bn) do local a=m:FindFirstChild(b[1]) local d=m:FindFirstChild(b[2]) local ln=e.lines[i]
                         if ln and a and d then
-                            local A=cam:WorldToViewportPoint(a.CFrame.Position)
-                            local D=cam:WorldToViewportPoint(d.CFrame.Position)
-                            if A.Z>0 and D.Z>0 then ln.From=Vector2.new(A.X,A.Y) ln.To=Vector2.new(D.X,D.Y) ln.Color=C_SKEL ln.Transparency=A_SKEL ln.Visible=true else ln.Visible=false end
+                            local aP=a.CFrame.Position local dP=d.CFrame.Position
+                            local A=cam:WorldToViewportPoint(aP) local D=cam:WorldToViewportPoint(dP)
+                            if A.Z>0 and D.Z>0 then
+                                ln.From=Vector2.new(A.X,A.Y) ln.To=Vector2.new(D.X,D.Y)
+                                local col=C_SKEL
+                                if OCC_ON then local mid=(aP+dP)/2 if not visible(mid,m) then col=C_OCC end end
+                                ln.Color=col ln.Transparency=A_SKEL ln.Visible=true
+                            else ln.Visible=false end
                         elseif ln then ln.Visible=false end end
                     for i=#bn+1,14 do if e.lines[i] then e.lines[i].Visible=false end end
                 else for _,ln in ipairs(e.lines) do ln.Visible=false end end
@@ -88,5 +114,5 @@ task.spawn(function()
     Hub.On("shutdown",function() for m in pairs(E) do rem(m) end pcall(function() RunS:UnbindFromRenderStep("HubESP") end) end)
     UI.ShowTab("esp")
     Hub.RegisterModule("esp",{Start=function() end})
-    print("[Hub ESP v4] loaded")
+    print("[Hub ESP v5] loaded")
 end)
