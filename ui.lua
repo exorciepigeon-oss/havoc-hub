@@ -1,13 +1,26 @@
--- HAVOC HUB UI
+-- HAVOC HUB UI v2 : sidebar icons + sharp corners + purple accent (compat API)
 local Hub=_G.HavocHub if not Hub then warn("[UI] core not loaded") return end
 local T=Hub.Theme local mk=Hub.mk
 local UIS=Hub.UIS local Tween=Hub.Tween
+
+-- Override theme: noir absolu + violet
+T.BG0=Color3.fromRGB(0,0,0)
+T.BG1=Color3.fromRGB(15,15,15)
+T.BG2=Color3.fromRGB(22,22,22)
+T.BG3=Color3.fromRGB(30,30,30)
+T.ACC=Color3.fromRGB(170,60,220)
+T.ACC2=Color3.fromRGB(220,80,255)
+T.TXT=Color3.fromRGB(230,230,230)
+T.TXT2=Color3.fromRGB(120,120,120)
+T.LINE=Color3.fromRGB(40,20,50)
+T.HP_LOW=Color3.fromRGB(255,0,0)
 
 if Hub.UI and Hub.UI.Gui then pcall(function() Hub.UI.Gui:Destroy() end) end
 Hub.UI={}
 local UI=Hub.UI
 
 UI.Gui=mk("ScreenGui",{Name="HavocHub",ResetOnSpawn=false},game:GetService("CoreGui"))
+
 local function drag(h,tgt) local on,st,sp=false,nil,nil
     h.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then on=true st=i.Position sp=tgt.Position end end)
     UIS.InputChanged:Connect(function(i) if on and i.UserInputType==Enum.UserInputType.MouseMovement then
@@ -15,23 +28,25 @@ local function drag(h,tgt) local on,st,sp=false,nil,nil
     UIS.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then on=false end end)
 end
 
--- Color picker with alpha
-local pk=mk("Frame",{Size=UDim2.new(0,230,0,220),Position=UDim2.new(0.5,-115,0.5,-110),BackgroundColor3=T.BG1,BorderSizePixel=0,Visible=false,ZIndex=30,Corner=10,Stroke=Color3.fromRGB(50,50,50)},UI.Gui)
-local pkT=mk("TextLabel",{Size=UDim2.new(1,-30,0,26),Position=UDim2.new(0,12,0,4),BackgroundTransparency=1,Text="Color",TextColor3=T.TXT,Font=Enum.Font.GothamBold,TextSize=13,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=31},pk)
-local pkX=mk("TextButton",{Size=UDim2.new(0,20,0,20),Position=UDim2.new(1,-26,0,6),BackgroundColor3=T.BG2,Text="X",TextColor3=T.TXT,Font=Enum.Font.GothamBold,TextSize=10,ZIndex=31,Corner=4},pk)
-local sv=mk("Frame",{Size=UDim2.new(0,150,0,120),Position=UDim2.new(0,12,0,36),BackgroundColor3=Color3.fromRGB(255,0,0),BorderSizePixel=0,ZIndex=31,Corner=6},pk)
-local wo=mk("Frame",{Size=UDim2.new(1,0,1,0),BackgroundColor3=Color3.new(1,1,1),BorderSizePixel=0,ZIndex=31,Corner=6},sv)
+-- Color picker (angular)
+local pk=mk("Frame",{Size=UDim2.new(0,240,0,230),Position=UDim2.new(0.5,-120,0.5,-115),BackgroundColor3=T.BG1,BorderSizePixel=0,Visible=false,ZIndex=30},UI.Gui)
+mk("Frame",{Size=UDim2.new(1,0,0,2),BackgroundColor3=T.ACC,BorderSizePixel=0,ZIndex=31},pk)
+mk("Frame",{Size=UDim2.new(0,2,1,0),BackgroundColor3=T.ACC,BorderSizePixel=0,ZIndex=31},pk)
+local pkT=mk("TextLabel",{Size=UDim2.new(1,-30,0,26),Position=UDim2.new(0,12,0,6),BackgroundTransparency=1,Text="COLOR",TextColor3=T.TXT,Font=Enum.Font.GothamBold,TextSize=12,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=31},pk)
+local pkX=mk("TextButton",{Size=UDim2.new(0,20,0,20),Position=UDim2.new(1,-26,0,6),BackgroundColor3=T.BG2,Text="X",TextColor3=T.TXT,Font=Enum.Font.GothamBold,TextSize=11,ZIndex=31,BorderSizePixel=0},pk)
+local sv=mk("Frame",{Size=UDim2.new(0,160,0,130),Position=UDim2.new(0,12,0,40),BackgroundColor3=Color3.fromRGB(255,0,0),BorderSizePixel=0,ZIndex=31},pk)
+local wo=mk("Frame",{Size=UDim2.new(1,0,1,0),BackgroundColor3=Color3.new(1,1,1),BorderSizePixel=0,ZIndex=31},sv)
 mk("UIGradient",{Rotation=0,Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,0),NumberSequenceKeypoint.new(1,1)})},wo)
-local bo=mk("Frame",{Size=UDim2.new(1,0,1,0),BackgroundColor3=Color3.new(0,0,0),BorderSizePixel=0,ZIndex=31,Corner=6},sv)
+local bo=mk("Frame",{Size=UDim2.new(1,0,1,0),BackgroundColor3=Color3.new(0,0,0),BorderSizePixel=0,ZIndex=31},sv)
 mk("UIGradient",{Rotation=90,Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,1),NumberSequenceKeypoint.new(1,0)})},bo)
-local svSel=mk("Frame",{Size=UDim2.new(0,10,0,10),AnchorPoint=Vector2.new(0.5,0.5),BackgroundColor3=Color3.new(1,1,1),BorderSizePixel=0,ZIndex=32,Round=true,Stroke=Color3.new(0,0,0)},sv)
-local hue=mk("Frame",{Size=UDim2.new(0,20,0,120),Position=UDim2.new(0,172,0,36),BorderSizePixel=0,ZIndex=31,Corner=6},pk)
+local svSel=mk("Frame",{Size=UDim2.new(0,8,0,8),AnchorPoint=Vector2.new(0.5,0.5),BackgroundColor3=Color3.new(1,1,1),BorderSizePixel=0,ZIndex=32,Stroke=Color3.new(0,0,0)},sv)
+local hue=mk("Frame",{Size=UDim2.new(0,20,0,130),Position=UDim2.new(0,180,0,40),BorderSizePixel=0,ZIndex=31},pk)
 mk("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(255,0,0)),ColorSequenceKeypoint.new(0.17,Color3.fromRGB(255,255,0)),ColorSequenceKeypoint.new(0.33,Color3.fromRGB(0,255,0)),ColorSequenceKeypoint.new(0.5,Color3.fromRGB(0,255,255)),ColorSequenceKeypoint.new(0.67,Color3.fromRGB(0,0,255)),ColorSequenceKeypoint.new(0.83,Color3.fromRGB(255,0,255)),ColorSequenceKeypoint.new(1,Color3.fromRGB(255,0,0))})},hue)
-local hueSel=mk("Frame",{Size=UDim2.new(1,4,0,4),AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.new(0.5,0,0,0),BackgroundColor3=Color3.new(1,1,1),BorderSizePixel=0,ZIndex=32,Stroke=Color3.new(0,0,0)},hue)
-mk("TextLabel",{Size=UDim2.new(0,50,0,14),Position=UDim2.new(0,12,0,158),BackgroundTransparency=1,Text="Alpha",TextColor3=T.TXT2,Font=Enum.Font.Gotham,TextSize=10,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=31},pk)
-local alphaBar=mk("Frame",{Size=UDim2.new(0,180,0,10),Position=UDim2.new(0,12,0,174),BackgroundColor3=Color3.fromRGB(40,40,40),BorderSizePixel=0,ZIndex=31,Corner=5},pk)
-local alphaFill=mk("Frame",{Size=UDim2.new(1,0,1,0),BackgroundColor3=Color3.fromRGB(255,255,255),BorderSizePixel=0,ZIndex=32,Corner=5},alphaBar)
-local prv=mk("Frame",{Size=UDim2.new(0,20,0,20),Position=UDim2.new(0,200,0,169),BorderSizePixel=0,ZIndex=31,Corner=4},pk)
+local hueSel=mk("Frame",{Size=UDim2.new(1,4,0,3),AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.new(0.5,0,0,0),BackgroundColor3=Color3.new(1,1,1),BorderSizePixel=0,ZIndex=32,Stroke=Color3.new(0,0,0)},hue)
+mk("TextLabel",{Size=UDim2.new(0,50,0,14),Position=UDim2.new(0,12,0,178),BackgroundTransparency=1,Text="ALPHA",TextColor3=T.TXT2,Font=Enum.Font.GothamBold,TextSize=10,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=31},pk)
+local alphaBar=mk("Frame",{Size=UDim2.new(0,188,0,10),Position=UDim2.new(0,12,0,194),BackgroundColor3=T.BG3,BorderSizePixel=0,ZIndex=31},pk)
+local alphaFill=mk("Frame",{Size=UDim2.new(1,0,1,0),BackgroundColor3=T.ACC,BorderSizePixel=0,ZIndex=32},alphaBar)
+local prv=mk("Frame",{Size=UDim2.new(0,24,0,24),Position=UDim2.new(0,206,0,188),BorderSizePixel=0,ZIndex=31,Stroke=T.ACC},pk)
 
 local cH,cS,cV,cA,setter,setterA=0,1,1,1,nil,nil
 local function pkUp() sv.BackgroundColor3=Color3.fromHSV(cH,1,1) local col=Color3.fromHSV(cH,cS,cV)
@@ -48,70 +63,117 @@ UIS.InputChanged:Connect(function(i) if i.UserInputType==Enum.UserInputType.Mous
 UIS.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then dS=false dH=false dA=false end end)
 pkX.MouseButton1Click:Connect(function() pk.Visible=false setter=nil setterA=nil end)
 function UI.OpenPicker(label,getC,setC,getA,setA)
-    pkT.Text=label local h,s,v=Color3.toHSV(getC()) cH,cS,cV=h,s,v cA=getA and getA() or 1 setter=setC setterA=setA
+    pkT.Text=(label or "COLOR"):upper() local h,s,v=Color3.toHSV(getC()) cH,cS,cV=h,s,v cA=getA and getA() or 1 setter=setC setterA=setA
     pk.Visible=true pkUp()
 end
 
 -- Main window
-UI.Root=mk("Frame",{Size=UDim2.new(0,520,0,540),Position=UDim2.new(0,20,0.5,-270),BackgroundColor3=T.BG0,BorderSizePixel=0,Corner=10,Stroke=Color3.fromRGB(40,40,40)},UI.Gui)
-local hdr=mk("Frame",{Size=UDim2.new(1,0,0,42),BackgroundColor3=T.BG1,BorderSizePixel=0,Corner=10},UI.Root)
-mk("Frame",{Size=UDim2.new(1,0,0,12),Position=UDim2.new(0,0,1,-12),BackgroundColor3=T.BG1,BorderSizePixel=0},hdr)
-mk("Frame",{Size=UDim2.new(0,3,0,16),Position=UDim2.new(0,16,0.5,-8),BackgroundColor3=T.ACC,BorderSizePixel=0,Round=true},hdr)
-mk("TextLabel",{Size=UDim2.new(0,300,1,0),Position=UDim2.new(0,28,0,0),BackgroundTransparency=1,Text="HAVOC HUB "..Hub.Version,TextColor3=T.TXT,Font=Enum.Font.GothamBold,TextSize=15,TextXAlignment=Enum.TextXAlignment.Left},hdr)
+local WIN_W,WIN_H=760,540
+UI.Root=mk("Frame",{Size=UDim2.new(0,WIN_W,0,WIN_H),Position=UDim2.new(0.5,-WIN_W/2,0.5,-WIN_H/2),BackgroundColor3=T.BG0,BorderSizePixel=0},UI.Gui)
+
+-- Top rainbow accent
+local rainbowLine=mk("Frame",{Size=UDim2.new(1,0,0,2),BackgroundColor3=T.ACC,BorderSizePixel=0},UI.Root)
+mk("UIGradient",{Color=ColorSequence.new({
+    ColorSequenceKeypoint.new(0,Color3.fromRGB(255,60,120)),
+    ColorSequenceKeypoint.new(0.33,Color3.fromRGB(170,60,220)),
+    ColorSequenceKeypoint.new(0.66,Color3.fromRGB(80,120,255)),
+    ColorSequenceKeypoint.new(1,Color3.fromRGB(255,100,220))
+})},rainbowLine)
+
+-- Header
+local hdr=mk("Frame",{Size=UDim2.new(1,0,0,38),Position=UDim2.new(0,0,0,2),BackgroundColor3=T.BG1,BorderSizePixel=0},UI.Root)
+mk("TextLabel",{Size=UDim2.new(0,200,1,0),Position=UDim2.new(0,16,0,0),BackgroundTransparency=1,Text="HAVOC HUB",TextColor3=T.TXT,Font=Enum.Font.GothamBold,TextSize=13,TextXAlignment=Enum.TextXAlignment.Left},hdr)
+mk("TextLabel",{Size=UDim2.new(0,100,1,0),Position=UDim2.new(0,110,0,0),BackgroundTransparency=1,Text=Hub.Version,TextColor3=T.TXT2,Font=Enum.Font.Gotham,TextSize=10,TextXAlignment=Enum.TextXAlignment.Left},hdr)
 drag(hdr,UI.Root)
-local closeB=mk("TextButton",{Size=UDim2.new(0,26,0,26),Position=UDim2.new(1,-34,0.5,-13),BackgroundColor3=T.BG2,Text="X",TextColor3=T.TXT,Font=Enum.Font.GothamBold,TextSize=13,Corner=6},hdr)
-local minB=mk("TextButton",{Size=UDim2.new(0,26,0,26),Position=UDim2.new(1,-66,0.5,-13),BackgroundColor3=T.BG2,Text="-",TextColor3=T.TXT,Font=Enum.Font.GothamBold,TextSize=18,Corner=6},hdr)
-local reo=mk("TextButton",{Size=UDim2.new(0,44,0,44),Position=UDim2.new(0,20,0,20),BackgroundColor3=T.BG1,Text="H",TextColor3=T.ACC,Font=Enum.Font.GothamBold,TextSize=20,Visible=false,Corner=22,Stroke=T.ACC},UI.Gui)
+
+local closeB=mk("TextButton",{Size=UDim2.new(0,32,0,24),Position=UDim2.new(1,-38,0.5,-12),BackgroundColor3=T.BG2,Text="X",TextColor3=T.TXT,Font=Enum.Font.GothamBold,TextSize=12,BorderSizePixel=0},hdr)
+local minB=mk("TextButton",{Size=UDim2.new(0,32,0,24),Position=UDim2.new(1,-74,0.5,-12),BackgroundColor3=T.BG2,Text="_",TextColor3=T.TXT,Font=Enum.Font.GothamBold,TextSize=14,BorderSizePixel=0},hdr)
+local reo=mk("TextButton",{Size=UDim2.new(0,52,0,52),Position=UDim2.new(0,20,0,20),BackgroundColor3=T.BG1,Text="H",TextColor3=T.ACC,Font=Enum.Font.GothamBold,TextSize=22,Visible=false,BorderSizePixel=0,Stroke=T.ACC},UI.Gui)
 drag(reo,reo)
 minB.MouseButton1Click:Connect(function() UI.Root.Visible=false reo.Visible=true end)
 reo.MouseButton1Click:Connect(function() UI.Root.Visible=true reo.Visible=false end)
 closeB.MouseButton1Click:Connect(function() Hub.G.HAVOC_STOP=true Hub.Emit("shutdown") UI.Gui:Destroy() end)
 
-UI.TabBar=mk("Frame",{Size=UDim2.new(1,-24,0,32),Position=UDim2.new(0,12,0,50),BackgroundTransparency=1},UI.Root)
-UI.Host=mk("Frame",{Size=UDim2.new(1,-24,1,-96),Position=UDim2.new(0,12,0,88),BackgroundTransparency=1,ClipsDescendants=true},UI.Root)
-UI.Tabs={} UI.TabX=0
+-- Sidebar (icons)
+local SIDE_W=52
+UI.Sidebar=mk("Frame",{Size=UDim2.new(0,SIDE_W,1,-40),Position=UDim2.new(0,0,0,40),BackgroundColor3=T.BG1,BorderSizePixel=0},UI.Root)
+mk("Frame",{Size=UDim2.new(0,1,1,0),Position=UDim2.new(1,-1,0,0),BackgroundColor3=T.LINE,BorderSizePixel=0},UI.Sidebar)
 
-function UI.ShowTab(n) for k,tt in pairs(UI.Tabs) do local a=(k==n) tt.c.Visible=a tt.b.TextColor3=a and T.ACC or T.TXT2 tt.u.Visible=a
-    if a then tt.c.Position=UDim2.new(0,0,0,10) Tween:Create(tt.c,TweenInfo.new(0.15),{Position=UDim2.new(0,0,0,0)}):Play() end end end
-function UI.AddTab(name,label)
+UI.Host=mk("Frame",{Size=UDim2.new(1,-SIDE_W,1,-40),Position=UDim2.new(0,SIDE_W,0,40),BackgroundColor3=T.BG0,BorderSizePixel=0,ClipsDescendants=true},UI.Root)
+
+UI.Tabs={} UI.TabY=12
+UI.CurrentTab=nil
+
+-- Icones auto par nom de tab
+local iconMap={esp="◉",world="◈",weapon="▲",player="P",misc="M",inventory="i",config="*"}
+
+function UI.ShowTab(n) for k,tt in pairs(UI.Tabs) do local a=(k==n) tt.c.Visible=a
+    if a then tt.b.BackgroundColor3=T.BG3 tt.line.Visible=true tt.icon.TextColor3=T.ACC UI.CurrentTab=n
+    else tt.b.BackgroundColor3=T.BG1 tt.line.Visible=false tt.icon.TextColor3=T.TXT2 end
+end end
+
+function UI.AddTab(name,label,customIcon)
     local c=mk("Frame",{Size=UDim2.new(1,0,1,0),BackgroundTransparency=1,Visible=false},UI.Host)
-    local b=mk("TextButton",{Size=UDim2.new(0,88,1,0),Position=UDim2.new(0,UI.TabX,0,0),BackgroundTransparency=1,Text=label,TextColor3=T.TXT2,Font=Enum.Font.GothamBold,TextSize=12},UI.TabBar)
-    local u=mk("Frame",{Size=UDim2.new(0,22,0,2),Position=UDim2.new(0.5,-11,1,-4),BackgroundColor3=T.ACC,BorderSizePixel=0,Visible=false,Round=true},b)
-    UI.Tabs[name]={b=b,c=c,u=u} b.MouseButton1Click:Connect(function() UI.ShowTab(name) end) UI.TabX=UI.TabX+92
+    local b=mk("TextButton",{Size=UDim2.new(1,-4,0,44),Position=UDim2.new(0,2,0,UI.TabY),BackgroundColor3=T.BG1,Text="",BorderSizePixel=0,AutoButtonColor=false},UI.Sidebar)
+    local line=mk("Frame",{Size=UDim2.new(0,2,1,0),Position=UDim2.new(0,0,0,0),BackgroundColor3=T.ACC,BorderSizePixel=0,Visible=false},b)
+    local ico=customIcon or iconMap[name] or "?"
+    local iconLbl=mk("TextLabel",{Size=UDim2.new(1,0,1,0),BackgroundTransparency=1,Text=ico,TextColor3=T.TXT2,Font=Enum.Font.GothamBold,TextSize=18},b)
+    UI.Tabs[name]={b=b,c=c,line=line,icon=iconLbl,label=label}
+    b.MouseButton1Click:Connect(function() UI.ShowTab(name) end)
+    UI.TabY=UI.TabY+48
+    if not UI.CurrentTab then UI.ShowTab(name) end
     return c
 end
 
-function UI.Row(par,x,y,w,label,gT,sT,gC,sC,gA,sA)
-    local r=mk("Frame",{Size=UDim2.new(0,w,0,30),Position=UDim2.new(0,x,0,y),BackgroundColor3=T.BG2,Corner=6},par)
-    local rb=mk("TextButton",{Size=UDim2.new(1,-46,1,0),BackgroundTransparency=1,Text="",AutoButtonColor=false},r)
-    mk("TextLabel",{Size=UDim2.new(1,-70,1,0),Position=UDim2.new(0,10,0,0),BackgroundTransparency=1,Text=label,TextColor3=T.TXT,Font=Enum.Font.GothamMedium,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left},rb)
-    local tr=mk("Frame",{Size=UDim2.new(0,26,0,12),Position=UDim2.new(1,-74,0.5,-6),BorderSizePixel=0,Round=true},r)
-    local kn=mk("Frame",{Size=UDim2.new(0,8,0,8),BackgroundColor3=Color3.fromRGB(235,235,235),BorderSizePixel=0,Round=true},tr)
-    local function paint(an) local on=gT() local ti=TweenInfo.new(0.15)
-        if an then Tween:Create(tr,ti,{BackgroundColor3=on and T.ACC or Color3.fromRGB(48,48,48)}):Play() Tween:Create(kn,ti,{Position=on and UDim2.new(1,-10,0.5,-4) or UDim2.new(0,2,0.5,-4)}):Play()
-        else tr.BackgroundColor3=on and T.ACC or Color3.fromRGB(48,48,48) kn.Position=on and UDim2.new(1,-10,0.5,-4) or UDim2.new(0,2,0.5,-4) end end
-    paint(false) rb.MouseButton1Click:Connect(function() sT(not gT()) paint(true) end)
-    if gC then local sw=mk("TextButton",{Size=UDim2.new(0,28,0,14),Position=UDim2.new(1,-36,0.5,-7),BackgroundColor3=gC(),Text="",Corner=3,Stroke=Color3.fromRGB(60,60,60)},r)
-        sw.MouseButton1Click:Connect(function() UI.OpenPicker(label,gC,function(c) sC(c) sw.BackgroundColor3=c end,gA,sA) end) end
-end
-function UI.Step(par,x,y,w,label,gV,sV,st,mn,mx,fmt)
-    local r=mk("Frame",{Size=UDim2.new(0,w,0,30),Position=UDim2.new(0,x,0,y),BackgroundColor3=T.BG2,Corner=6},par)
-    local lb=mk("TextLabel",{Size=UDim2.new(1,-70,1,0),Position=UDim2.new(0,10,0,0),BackgroundTransparency=1,Font=Enum.Font.GothamMedium,TextSize=11,TextColor3=T.TXT,TextXAlignment=Enum.TextXAlignment.Left},r)
-    local function rf() lb.Text=label.."   "..(fmt and fmt(gV()) or tostring(gV())) end rf()
-    mk("TextButton",{Size=UDim2.new(0,22,0,18),Position=UDim2.new(1,-50,0.5,-9),BackgroundColor3=Color3.fromRGB(36,36,36),Text="-",TextColor3=T.TXT,Font=Enum.Font.GothamBold,TextSize=12,Corner=3},r).MouseButton1Click:Connect(function() sV(math.max(mn,gV()-st)) rf() end)
-    mk("TextButton",{Size=UDim2.new(0,22,0,18),Position=UDim2.new(1,-26,0.5,-9),BackgroundColor3=Color3.fromRGB(36,36,36),Text="+",TextColor3=T.TXT,Font=Enum.Font.GothamBold,TextSize=12,Corner=3},r).MouseButton1Click:Connect(function() sV(math.min(mx,gV()+st)) rf() end)
-end
-function UI.Header(par,x,y,w,txt) mk("TextLabel",{Size=UDim2.new(0,w,0,20),Position=UDim2.new(0,x,0,y),BackgroundTransparency=1,Text=txt,TextColor3=T.ACC,Font=Enum.Font.GothamBold,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left},par) end
+-- === API compat avec ancienne signature (par, x, y, w, ...) ===
 
--- Helper wrappers for feature devs
-function UI.Toggle(par,x,y,w,label,key,default) UI.Row(par,x,y,w,label,function() return Hub.Get(key,default) end,function(v) Hub.Set(key,v) end) end
+function UI.Header(par,x,y,w,txt)
+    mk("TextLabel",{Size=UDim2.new(0,w,0,18),Position=UDim2.new(0,x+8,0,y+8),BackgroundTransparency=1,Text=txt:upper(),TextColor3=T.ACC,Font=Enum.Font.GothamBold,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left},par)
+    mk("Frame",{Size=UDim2.new(0,w-16,0,1),Position=UDim2.new(0,x+8,0,y+26),BackgroundColor3=T.LINE,BorderSizePixel=0},par)
+end
+
+function UI.Row(par,x,y,w,label,gT,sT,gC,sC,gA,sA)
+    local r=mk("Frame",{Size=UDim2.new(0,w,0,24),Position=UDim2.new(0,x+8,0,y+8),BackgroundTransparency=1},par)
+    local box=mk("TextButton",{Size=UDim2.new(0,14,0,14),Position=UDim2.new(0,4,0.5,-7),BackgroundColor3=T.BG3,BorderSizePixel=0,Text="",AutoButtonColor=false},r)
+    local fill=mk("Frame",{Size=UDim2.new(1,-4,1,-4),Position=UDim2.new(0,2,0,2),BackgroundColor3=T.ACC,BorderSizePixel=0,Visible=false},box)
+    mk("TextLabel",{Size=UDim2.new(1,-64,1,0),Position=UDim2.new(0,26,0,0),BackgroundTransparency=1,Text=label,TextColor3=T.TXT,Font=Enum.Font.Gotham,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left},r)
+    local function paint() fill.Visible=gT() end paint()
+    box.MouseButton1Click:Connect(function() sT(not gT()) paint() end)
+    if gC then
+        local sw=mk("TextButton",{Size=UDim2.new(0,30,0,14),Position=UDim2.new(1,-38,0.5,-7),BackgroundColor3=gC(),Text="",BorderSizePixel=0,Stroke=T.LINE},r)
+        sw.MouseButton1Click:Connect(function() UI.OpenPicker(label,gC,function(c) sC(c) sw.BackgroundColor3=c end,gA,sA) end)
+    end
+end
+
+function UI.Stepper(par,x,y,w,label,gV,sV,st,mn,mx,fmt)
+    local r=mk("Frame",{Size=UDim2.new(0,w,0,24),Position=UDim2.new(0,x+8,0,y+8),BackgroundTransparency=1},par)
+    local lb=mk("TextLabel",{Size=UDim2.new(1,-52,1,0),Position=UDim2.new(0,4,0,0),BackgroundTransparency=1,Font=Enum.Font.Gotham,TextSize=11,TextColor3=T.TXT,TextXAlignment=Enum.TextXAlignment.Left},r)
+    local function rf() lb.Text=label.."   "..(fmt and fmt(gV()) or tostring(gV())) end rf()
+    mk("TextButton",{Size=UDim2.new(0,20,0,16),Position=UDim2.new(1,-46,0.5,-8),BackgroundColor3=T.BG3,Text="-",TextColor3=T.TXT,Font=Enum.Font.GothamBold,TextSize=12,BorderSizePixel=0},r).MouseButton1Click:Connect(function() sV(math.max(mn,gV()-st)) rf() end)
+    mk("TextButton",{Size=UDim2.new(0,20,0,16),Position=UDim2.new(1,-22,0.5,-8),BackgroundColor3=T.BG3,Text="+",TextColor3=T.TXT,Font=Enum.Font.GothamBold,TextSize=12,BorderSizePixel=0},r).MouseButton1Click:Connect(function() sV(math.min(mx,gV()+st)) rf() end)
+end
+
+function UI.Step(par,x,y,w,label,gV,sV,st,mn,mx,fmt) UI.Stepper(par,x,y,w,label,gV,sV,st,mn,mx,fmt) end
+function UI.Toggle(par,x,y,w,label,gT,sT) UI.Row(par,x,y,w,label,gT,sT) end
 function UI.ToggleColor(par,x,y,w,label,keyT,defT,keyC,defC,keyA,defA)
     UI.Row(par,x,y,w,label,function() return Hub.Get(keyT,defT) end,function(v) Hub.Set(keyT,v) end,
         function() return Hub.Get(keyC,defC) end,function(c) Hub.Set(keyC,c) end,
         keyA and function() return Hub.Get(keyA,defA or 1) end or nil,
         keyA and function(a) Hub.Set(keyA,a) end or nil)
 end
-function UI.Stepper(par,x,y,w,label,key,default,st,mn,mx,fmt) UI.Step(par,x,y,w,label,function() return Hub.Get(key,default) end,function(v) Hub.Set(key,v) end,st,mn,mx,fmt) end
+
+-- Config tab (loaded delayed after all features)
+task.spawn(function()
+    task.wait(1.5)
+    local cfg=UI.AddTab("config","Config","*")
+    UI.Header(cfg,0,0,340,"CONFIGURATION")
+    UI.Row(cfg,0,36,340,"Reset all saved settings",function() return false end,function()
+        for k,_ in pairs(Hub.Config) do Hub.Config[k]=nil end
+        if writefile then pcall(function() writefile(Hub.CFG_FILE,"{}") end) end
+        print("[Hub] Config reset - relaunch to apply")
+    end)
+    mk("TextLabel",{Size=UDim2.new(0,600,0,120),Position=UDim2.new(0,16,0,80),BackgroundTransparency=1,Text="Havoc Hub "..Hub.Version.."\n\nModular hub with auto-saved config.\nCombat toggles never persist (safety).\nModify features via GitHub, reload in Volt.",TextColor3=T.TXT2,Font=Enum.Font.Gotham,TextSize=10,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top,TextWrapped=true},cfg)
+end)
 
 Hub.Emit("ui_ready")
-print("[Hub UI] loaded")
+print("[Hub UI v2] loaded (dark purple)")
