@@ -14,7 +14,8 @@ end
 
 fetch("core.lua")
 fetch("ui.lua")
-for _,f in ipairs({"esp","loot","weapon","player","world","inventory"}) do
+-- DIAGNOSTIC: weapon.lua desactive temporairement pour tester si les degats reviennent
+for _,f in ipairs({"esp","loot","player","world","inventory"}) do
     fetch("features/"..f..".lua")
 end
 if _G.HavocHub and _G.HavocHub.Start then _G.HavocHub.Start() end
