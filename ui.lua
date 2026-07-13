@@ -109,6 +109,9 @@ local iconMap={esp="◉",world="◈",weapon="▲",player="P",misc="M",inventory=
 
 function UI.ShowTab(n) for k,tt in pairs(UI.Tabs) do local a=(k==n) tt.c.Visible=a
     if a then tt.b.BackgroundColor3=T.BG3 tt.line.Visible=true tt.icon.TextColor3=T.ACC UI.CurrentTab=n
+        -- transition anim: slide from left + fade
+        tt.c.Position=UDim2.new(0,-30,0,0)
+        Tween:Create(tt.c,TweenInfo.new(0.25,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Position=UDim2.new(0,0,0,0)}):Play()
     else tt.b.BackgroundColor3=T.BG1 tt.line.Visible=false tt.icon.TextColor3=T.TXT2 end
 end end
 
@@ -127,17 +130,34 @@ end
 
 -- === API compat avec ancienne signature (par, x, y, w, ...) ===
 
+-- Header = petit titre en haut + soulignement violet (simple, compatible)
 function UI.Header(par,x,y,w,txt)
-    mk("TextLabel",{Size=UDim2.new(0,w,0,18),Position=UDim2.new(0,x+8,0,y+8),BackgroundTransparency=1,Text=txt:upper(),TextColor3=T.ACC,Font=Enum.Font.GothamBold,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left},par)
-    mk("Frame",{Size=UDim2.new(0,w-16,0,1),Position=UDim2.new(0,x+8,0,y+26),BackgroundColor3=T.LINE,BorderSizePixel=0},par)
+    mk("TextLabel",{Size=UDim2.new(0,w,0,14),Position=UDim2.new(0,x+8,0,y+4),BackgroundTransparency=1,Text=txt:upper(),TextColor3=T.ACC,Font=Enum.Font.GothamBold,TextSize=10,TextXAlignment=Enum.TextXAlignment.Center},par)
+    mk("Frame",{Size=UDim2.new(0,w-32,0,1),Position=UDim2.new(0,x+24,0,y+22),BackgroundColor3=T.LINE,BorderSizePixel=0},par)
+end
+
+-- UI.Group : creer un container borde avec titre au-dessus (comme ta ref)
+-- Usage: local group=UI.Group(par,x,y,w,h,"GUN MODS") puis ajouter rows dans group
+function UI.Group(par,x,y,w,h,title)
+    local g=mk("Frame",{Size=UDim2.new(0,w,0,h),Position=UDim2.new(0,x+8,0,y+16),BackgroundColor3=T.BG1,BorderSizePixel=0},par)
+    local stroke=Instance.new("UIStroke") stroke.Color=T.LINE stroke.Thickness=1 stroke.Parent=g
+    -- Titre encoche sur bord (fond BG0 pour breakout)
+    if title then
+        local lbg=mk("Frame",{Size=UDim2.new(0,#title*6+18,0,12),Position=UDim2.new(0,14,0,-6),BackgroundColor3=T.BG0,BorderSizePixel=0,ZIndex=3},g)
+        mk("TextLabel",{Size=UDim2.new(1,-4,1,0),Position=UDim2.new(0,2,0,-1),BackgroundTransparency=1,Text=title:upper(),TextColor3=T.TXT,Font=Enum.Font.GothamBold,TextSize=10,TextXAlignment=Enum.TextXAlignment.Center,ZIndex=4},lbg)
+    end
+    return g
 end
 
 function UI.Row(par,x,y,w,label,gT,sT,gC,sC,gA,sA)
     local r=mk("Frame",{Size=UDim2.new(0,w,0,24),Position=UDim2.new(0,x+8,0,y+8),BackgroundTransparency=1},par)
+    -- checkbox with neon glow when active
     local box=mk("TextButton",{Size=UDim2.new(0,14,0,14),Position=UDim2.new(0,4,0.5,-7),BackgroundColor3=T.BG3,BorderSizePixel=0,Text="",AutoButtonColor=false},r)
+    local stroke=Instance.new("UIStroke") stroke.Color=T.LINE stroke.Thickness=1 stroke.Parent=box
     local fill=mk("Frame",{Size=UDim2.new(1,-4,1,-4),Position=UDim2.new(0,2,0,2),BackgroundColor3=T.ACC,BorderSizePixel=0,Visible=false},box)
+    local glow=Instance.new("UIStroke") glow.Color=T.ACC2 glow.Thickness=2 glow.Transparency=0.3 glow.Enabled=false glow.Parent=box
     mk("TextLabel",{Size=UDim2.new(1,-64,1,0),Position=UDim2.new(0,26,0,0),BackgroundTransparency=1,Text=label,TextColor3=T.TXT,Font=Enum.Font.Gotham,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left},r)
-    local function paint() fill.Visible=gT() end paint()
+    local function paint() local on=gT() fill.Visible=on glow.Enabled=on stroke.Color=on and T.ACC or T.LINE end paint()
     box.MouseButton1Click:Connect(function() sT(not gT()) paint() end)
     if gC then
         local sw=mk("TextButton",{Size=UDim2.new(0,30,0,14),Position=UDim2.new(1,-38,0.5,-7),BackgroundColor3=gC(),Text="",BorderSizePixel=0,Stroke=T.LINE},r)
@@ -146,6 +166,11 @@ function UI.Row(par,x,y,w,label,gT,sT,gC,sC,gA,sA)
 end
 
 function UI.Stepper(par,x,y,w,label,gV,sV,st,mn,mx,fmt)
+    -- Compat: si gV est un string, c'est une key (auto wrap avec Hub.Get/Set)
+    if type(gV)=="string" then local key=gV local default=sV
+        gV=function() return Hub.Get(key,default) end
+        sV=function(v) Hub.Set(key,v) end
+    end
     local r=mk("Frame",{Size=UDim2.new(0,w,0,24),Position=UDim2.new(0,x+8,0,y+8),BackgroundTransparency=1},par)
     local lb=mk("TextLabel",{Size=UDim2.new(1,-52,1,0),Position=UDim2.new(0,4,0,0),BackgroundTransparency=1,Font=Enum.Font.Gotham,TextSize=11,TextColor3=T.TXT,TextXAlignment=Enum.TextXAlignment.Left},r)
     local function rf() lb.Text=label.."   "..(fmt and fmt(gV()) or tostring(gV())) end rf()
