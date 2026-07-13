@@ -28,10 +28,22 @@ local function drag(h,tgt) local on,st,sp=false,nil,nil
     UIS.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then on=false end end)
 end
 
+-- RGB animated accents (top bar + picker top strip)
+local RunS=game:GetService("RunService")
+local rgbTargets={}
+RunS.RenderStepped:Connect(function()
+    if Hub.G and Hub.G.HAVOC_STOP then return end
+    local hueNow=(tick()*0.15)%1
+    local col=Color3.fromHSV(hueNow,1,1)
+    for i=#rgbTargets,1,-1 do local f=rgbTargets[i]
+        if f.Parent then f.BackgroundColor3=col else table.remove(rgbTargets,i) end
+    end
+end)
+
 -- Color picker (angular)
 local pk=mk("Frame",{Size=UDim2.new(0,240,0,230),Position=UDim2.new(0.5,-120,0.5,-115),BackgroundColor3=T.BG1,BorderSizePixel=0,Visible=false,ZIndex=30},UI.Gui)
-mk("Frame",{Size=UDim2.new(1,0,0,2),BackgroundColor3=T.ACC,BorderSizePixel=0,ZIndex=31},pk)
-mk("Frame",{Size=UDim2.new(0,2,1,0),BackgroundColor3=T.ACC,BorderSizePixel=0,ZIndex=31},pk)
+local pkTop=mk("Frame",{Size=UDim2.new(1,0,0,2),BackgroundColor3=T.ACC,BorderSizePixel=0,ZIndex=31},pk)
+table.insert(rgbTargets,pkTop)
 local pkT=mk("TextLabel",{Size=UDim2.new(1,-30,0,26),Position=UDim2.new(0,12,0,6),BackgroundTransparency=1,Text="COLOR",TextColor3=T.TXT,Font=Enum.Font.GothamBold,TextSize=12,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=31},pk)
 local pkX=mk("TextButton",{Size=UDim2.new(0,20,0,20),Position=UDim2.new(1,-26,0,6),BackgroundColor3=T.BG2,Text="X",TextColor3=T.TXT,Font=Enum.Font.GothamBold,TextSize=11,ZIndex=31,BorderSizePixel=0},pk)
 local sv=mk("Frame",{Size=UDim2.new(0,160,0,130),Position=UDim2.new(0,12,0,40),BackgroundColor3=Color3.fromRGB(255,0,0),BorderSizePixel=0,ZIndex=31},pk)
@@ -67,18 +79,13 @@ function UI.OpenPicker(label,getC,setC,getA,setA)
     pk.Visible=true pkUp()
 end
 
--- Main window
-local WIN_W,WIN_H=760,540
+-- Main window (scaled so content fills)
+local WIN_W,WIN_H=560,400
 UI.Root=mk("Frame",{Size=UDim2.new(0,WIN_W,0,WIN_H),Position=UDim2.new(0.5,-WIN_W/2,0.5,-WIN_H/2),BackgroundColor3=T.BG0,BorderSizePixel=0},UI.Gui)
 
--- Top rainbow accent
+-- Top RGB accent (animated)
 local rainbowLine=mk("Frame",{Size=UDim2.new(1,0,0,2),BackgroundColor3=T.ACC,BorderSizePixel=0},UI.Root)
-mk("UIGradient",{Color=ColorSequence.new({
-    ColorSequenceKeypoint.new(0,Color3.fromRGB(255,60,120)),
-    ColorSequenceKeypoint.new(0.33,Color3.fromRGB(170,60,220)),
-    ColorSequenceKeypoint.new(0.66,Color3.fromRGB(80,120,255)),
-    ColorSequenceKeypoint.new(1,Color3.fromRGB(255,100,220))
-})},rainbowLine)
+table.insert(rgbTargets,rainbowLine)
 
 -- Header
 local hdr=mk("Frame",{Size=UDim2.new(1,0,0,38),Position=UDim2.new(0,0,0,2),BackgroundColor3=T.BG1,BorderSizePixel=0},UI.Root)
@@ -100,6 +107,8 @@ UI.Sidebar=mk("Frame",{Size=UDim2.new(0,SIDE_W,1,-40),Position=UDim2.new(0,0,0,4
 mk("Frame",{Size=UDim2.new(0,1,1,0),Position=UDim2.new(1,-1,0,0),BackgroundColor3=T.LINE,BorderSizePixel=0},UI.Sidebar)
 
 UI.Host=mk("Frame",{Size=UDim2.new(1,-SIDE_W,1,-40),Position=UDim2.new(0,SIDE_W,0,40),BackgroundColor3=T.BG0,BorderSizePixel=0,ClipsDescendants=true},UI.Root)
+-- UIScale stretches content to fill host (features use fixed pixel coords ~480x276)
+local hostScale=Instance.new("UIScale") hostScale.Scale=1.04 hostScale.Parent=UI.Host
 
 UI.Tabs={} UI.TabY=12
 UI.CurrentTab=nil
