@@ -1,8 +1,10 @@
--- HAVOC HUB CORE
+-- HAVOC HUB CORE v2 (unsafe keys never persist)
 _G.HavocHub=_G.HavocHub or {}
 local Hub=_G.HavocHub
 Hub.Version="v13" Hub.Modules={} Hub.Config={} Hub.CFG_FILE="havoc_hub_cfg.json"
 Hub.Signals={} Hub.NamecallHooks={} Hub.G=getgenv()
+-- Toggles combat/dangereux qui NE persistent JAMAIS entre exec
+Hub.UnsafeKeys={AIMBOT=true,SILENT_AIM=true,NO_RECOIL=true,NO_SPREAD=true,TRIGGER=true,NO_SWAY=true}
 
 Hub.Players=game:GetService("Players") Hub.RunS=game:GetService("RunService")
 Hub.UIS=game:GetService("UserInputService") Hub.Tween=game:GetService("TweenService")
@@ -27,7 +29,6 @@ function Hub.mk(cls,p,par)
     if par then o.Parent=par end return o
 end
 
--- Config persistante
 function Hub.LoadConfig()
     pcall(function()
         if isfile and isfile(Hub.CFG_FILE) then
@@ -41,32 +42,29 @@ function Hub.LoadConfig()
             end
         end
     end)
+    -- Force unsafe keys OFF regardless of disk
+    for k in pairs(Hub.UnsafeKeys) do Hub.Config[k]=false end
 end
 function Hub.SaveConfig()
     pcall(function()
         if not writefile then return end
         local dump={}
         for k,v in pairs(Hub.Config) do
-            if typeof(v)=="Color3" then dump[k]={__color=true,r=math.floor(v.R*255),g=math.floor(v.G*255),b=math.floor(v.B*255)}
-            else dump[k]=v end
+            if not Hub.UnsafeKeys[k] then
+                if typeof(v)=="Color3" then dump[k]={__color=true,r=math.floor(v.R*255),g=math.floor(v.G*255),b=math.floor(v.B*255)}
+                else dump[k]=v end
+            end
         end
         writefile(Hub.CFG_FILE,Hub.HttpService:JSONEncode(dump))
     end)
 end
-function Hub.Get(key,default)
-    if Hub.Config[key]==nil then Hub.Config[key]=default end
-    return Hub.Config[key]
-end
+function Hub.Get(key,default) if Hub.Config[key]==nil then Hub.Config[key]=default end return Hub.Config[key] end
 function Hub.Set(key,val) Hub.Config[key]=val Hub.SaveConfig() end
 
--- Module registry
 function Hub.RegisterModule(name,mod) Hub.Modules[name]=mod end
-
--- Pub/sub events
 function Hub.On(evt,cb) Hub.Signals[evt]=Hub.Signals[evt] or {} table.insert(Hub.Signals[evt],cb) end
 function Hub.Emit(evt,...) if not Hub.Signals[evt] then return end for _,cb in ipairs(Hub.Signals[evt]) do pcall(cb,...) end end
 
--- Shared helpers
 function Hub.MyPos() local c=Hub.lp.Character local r=c and c:FindFirstChild("HumanoidRootPart") return r and r.Position or Hub.cam.CFrame.Position end
 function Hub.IsPlayer(m) return Hub.Players:GetPlayerFromCharacter(m)~=nil end
 function Hub.RealId(m) local plr=Hub.Players:GetPlayerFromCharacter(m) if plr then return "P:"..plr.UserId,plr end
@@ -95,7 +93,6 @@ function Hub.Enemies(maxDist)
     return byId
 end
 
--- Global namecall hook (features register callbacks)
 if not Hub._namecallInstalled then
     Hub._namecallInstalled=true
     local mt=getrawmetatable(game)
@@ -116,8 +113,10 @@ if not Hub._namecallInstalled then
 end
 function Hub.AddNamecallHook(fn) table.insert(Hub.NamecallHooks,fn) end
 
+-- LoadConfig NOW so features build UI with clean state
+Hub.LoadConfig()
+
 function Hub.Start()
-    Hub.LoadConfig()
     for name,mod in pairs(Hub.Modules) do
         if type(mod.Start)=="function" then pcall(mod.Start) end
     end
