@@ -43,9 +43,13 @@ if not okWin or not Window then warn("[UI] CreateWindow failed: "..tostring(Wind
 UI.Window=Window
 print("[UI] step 4: window created")
 
--- Apply persisted menu toggle key
+-- Apply persisted menu toggle key (guard against old bad-format saves)
 local savedKey=Hub.Get("MENU_KEY","RightControl")
-local kc=Enum.KeyCode[savedKey] if kc then Library.ToggleKeybind=kc end
+-- Strip legacy "Enum.KeyCode." prefix if present
+if type(savedKey)=="string" then savedKey=savedKey:gsub("^Enum%.KeyCode%.","") end
+local okKC,kc=pcall(function() return Enum.KeyCode[savedKey] end)
+if okKC and kc then Library.ToggleKeybind=kc Hub.Set("MENU_KEY",kc.Name)
+else Hub.Set("MENU_KEY","RightControl") end
 
 -- Force show in case AutoShow race
 task.spawn(function() task.wait(0.1) pcall(function() if not Library.Toggled then Library:Toggle() end end) end)
@@ -138,7 +142,7 @@ function UI.KeyBind(par,x,y,w,label,getKey,setKey)
     end
     local kStr=getKey() or "C"
     g:AddLabel(label):AddKeyPicker(nid(),{Default=kStr,SyncOnPress=true,Mode="Hold",Text=label,Callback=function() end,
-        ChangedCallback=function(new) if new then setKey(tostring(new)) end end})
+        ChangedCallback=function(new) if typeof(new)=="EnumItem" then setKey(new.Name) end end})
 end
 
 function UI.OpenPicker() end
