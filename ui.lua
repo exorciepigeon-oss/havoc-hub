@@ -42,10 +42,14 @@ if not okWin or not Window then warn("[UI] CreateWindow failed: "..tostring(Wind
 UI.Window=Window
 print("[UI] step 4: window created")
 
+-- Apply persisted menu toggle key
+local savedKey=Hub.Get("MENU_KEY","RightControl")
+local kc=Enum.KeyCode[savedKey] if kc then Library.ToggleKeybind=kc end
+
 -- Force show in case AutoShow race
 task.spawn(function() task.wait(0.1) pcall(function() if not Library.Toggled then Library:Toggle() end end) end)
 
-local iconMap={esp="eye",world="globe",weapon="crosshair",misc="settings-2",config="sliders",player="user",inventory="backpack",loot="globe"}
+local iconMap={esp="eye",world="globe",weapon="crosshair",misc="wrench",config="settings",player="user",inventory="backpack",loot="globe"}
 
 UI.Tabs={} -- name -> {tab=Tab, curLeft=Groupbox, curRight=Groupbox, current=Groupbox}
 local uid=0 local function nid() uid=uid+1 return "hh_"..uid end
@@ -140,13 +144,35 @@ task.spawn(function()
     if Hub.G and Hub.G.HAVOC_STOP then return end
     local cfg=UI.AddTab("config","Config")
     local e=UI.Tabs.config
-    local left=e.tab:AddLeftGroupbox("Configuration") e.curLeft=left e.current=left
-    left:AddButton({Text="Reset all saved settings",Func=function()
+    local left=e.tab:AddLeftGroupbox("Menu") e.curLeft=left e.current=left
+    -- Menu toggle key picker
+    local curKey=Hub.Get("MENU_KEY","RightControl")
+    left:AddLabel("Menu Toggle Key"):AddKeyPicker(nid(),{Default=curKey,Mode="Toggle",Text="Menu Key",NoUI=false,
+        ChangedCallback=function(new)
+            local nm=tostring(new)
+            Hub.Set("MENU_KEY",nm)
+            local k=Enum.KeyCode[nm] if k then Library.ToggleKeybind=k end
+        end})
+    left:AddButton({Text="Unload Script",Risky=true,Func=function()
+        Hub.G.HAVOC_STOP=true
+        Hub.Emit("shutdown")
+        task.wait(0.1)
+        pcall(function() Library:Unload() end)
+        pcall(function()
+            for _,g in ipairs(game:GetService("CoreGui"):GetChildren()) do
+                if g.Name=="HavocHub_ESPNative" or g.Name=="HavocHub" then g:Destroy() end
+            end
+        end)
+        getgenv().HAVOC_LOADED=false
+        print("[Hub] fully unloaded")
+    end})
+    local right=e.tab:AddRightGroupbox("Config") e.curRight=right e.current=right
+    right:AddButton({Text="Reset all saved settings",Func=function()
         for k,_ in pairs(Hub.Config) do Hub.Config[k]=nil end
         if writefile then pcall(function() writefile(Hub.CFG_FILE,"{}") end) end
         Library:Notify("Config reset - relaunch to apply",3)
     end})
-    left:AddLabel("Havoc Hub "..(Hub.Version or "").." | Combat toggles never persist (safety).",true)
+    right:AddLabel("Havoc Hub "..(Hub.Version or "").." | Combat toggles never persist (safety).",true)
 end)
 
 Library:Notify("Havoc Hub "..(Hub.Version or "").." loaded",3)
