@@ -100,9 +100,34 @@ task.spawn(function()
             return oldNC(self,...)
         end
 
-        -- SILENT AIM / NO SPREAD sur shootRemote
+        -- SILENT AIM / NO SPREAD / TRACER sur shootRemote
         if self==shootRemote and n==3 then
             local a1,a2,a3=select(1,...),select(2,...),select(3,...)
+            -- Bullet tracer: origin=a2 (Vector3), dir=a3 (Vector3 unit)
+            if Hub.Get("TRACER_ON",false) and typeof(a2)=="Vector3" and typeof(a3)=="Vector3" then
+                task.spawn(function()
+                    local dist=Hub.Get("TRACER_DIST",300)
+                    local endPt=a2+a3.Unit*dist
+                    -- Raycast pour hit réel (optionnel)
+                    local rp=RaycastParams.new() rp.FilterType=Enum.RaycastFilterType.Exclude
+                    rp.FilterDescendantsInstances={Hub.lp.Character} rp.IgnoreWater=true
+                    local res=workspace:Raycast(a2,a3.Unit*dist,rp)
+                    if res then endPt=res.Position end
+                    local len=(endPt-a2).Magnitude
+                    local mid=(a2+endPt)/2
+                    local part=Instance.new("Part")
+                    part.Anchored=true part.CanCollide=false part.CanQuery=false part.CanTouch=false
+                    part.Material=Enum.Material.Neon part.Color=Hub.Get("TRACER_C",Color3.fromRGB(255,255,0))
+                    local thick=Hub.Get("TRACER_THICK",3)/10
+                    part.Size=Vector3.new(thick,thick,len)
+                    part.CFrame=CFrame.new(mid,endPt)
+                    part.Transparency=0
+                    part.Parent=workspace
+                    local dur=Hub.Get("TRACER_DUR",300)/1000
+                    game:GetService("TweenService"):Create(part,TweenInfo.new(dur),{Transparency=1}):Play()
+                    task.wait(dur) part:Destroy()
+                end)
+            end
             if Hub.Get("SILENT_AIM",false) then
                 local head=cached.head local hpos=cached.pos
                 if Hub.Get("DEBUG_SHOT",false) then
@@ -148,6 +173,12 @@ task.spawn(function()
     UI.Row(cW,LX,68,COLW,"No Sway",function() return Hub.Get("NO_SWAY",false) end,function(v) Hub.Set("NO_SWAY",v) end)
     UI.Stepper(cW,0,102,COLW*2+8,"FOV Size (px)","FOV_SIZE",150,10,20,600)
     UI.Step(cW,0,138,COLW*2+8,"Aim Smooth x100",function() return math.floor(Hub.Get("AIM_SMOOTH",0.35)*100) end,function(v) Hub.Set("AIM_SMOOTH",v/100) end,5,5,100)
+
+    UI.Header(cW,0,172,COLW*2+8,"Bullet Tracer",140)
+    UI.ToggleColor(cW,LX+4,182,COLW-8,"Bullet Tracer","TRACER_ON",false,"TRACER_C",Color3.fromRGB(255,255,0))
+    UI.Stepper(cW,RX+4,182,COLW-8,"Duration (ms)","TRACER_DUR",300,50,100,1500)
+    UI.Stepper(cW,LX+4,216,COLW-8,"Thickness","TRACER_THICK",3,1,1,10)
+    UI.Stepper(cW,RX+4,216,COLW-8,"Max Distance","TRACER_DIST",300,25,50,1000)
 
     Hub.On("shutdown",function() pcall(function() fovCirc:Remove() RunS:UnbindFromRenderStep("HubAim") end) end)
     Hub.RegisterModule("weapon",{Start=function() end})

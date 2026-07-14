@@ -143,17 +143,21 @@ function UI.KeyBind(par,x,y,w,label,getKey,setKey,onChange,defaultMode)
         getKey=function() return Hub.Get(k,d) end setKey=function(v) Hub.Set(k,v) end
     end
     local kStr=getKey() or "C"
-    local kp=g:AddLabel(label):AddKeyPicker(nid(),{Default=kStr,Mode=defaultMode or "Hold",Text=label,
+    local pickerId=nid()
+    g:AddLabel(label):AddKeyPicker(pickerId,{Default=kStr,Mode=defaultMode or "Hold",Text=label,
         ChangedCallback=function(new) if typeof(new)=="EnumItem" then setKey(new.Name) end end})
-    if onChange and kp then
-        local lastState=false
-        game:GetService("RunService").Heartbeat:Connect(function()
-            if Hub.G and Hub.G.HAVOC_STOP then return end
-            local ok,st=pcall(function() return kp:GetState() end)
-            if ok then st=st and true or false
-                if st~=lastState then lastState=st onChange(st) end
-            end
-        end)
+    if onChange then
+        local kp=Library.Options and Library.Options[pickerId]
+        if kp then
+            local lastState=false
+            game:GetService("RunService").Heartbeat:Connect(function()
+                if Hub.G and Hub.G.HAVOC_STOP then return end
+                local ok,st=pcall(function() return kp:GetState() end)
+                if ok then st=st and true or false
+                    if st~=lastState then lastState=st onChange(st) end
+                end
+            end)
+        else warn("[UI] KeyBind poll fail: KeyPicker not in Library.Options["..pickerId.."]") end
     end
 end
 
