@@ -8,17 +8,28 @@ task.spawn(function()
     local B15={{"Head","UpperTorso"},{"UpperTorso","LowerTorso"},{"UpperTorso","LeftUpperArm"},{"LeftUpperArm","LeftLowerArm"},{"LeftLowerArm","LeftHand"},{"UpperTorso","RightUpperArm"},{"RightUpperArm","RightLowerArm"},{"RightLowerArm","RightHand"},{"LowerTorso","LeftUpperLeg"},{"LeftUpperLeg","LeftLowerLeg"},{"LeftLowerLeg","LeftFoot"},{"LowerTorso","RightUpperLeg"},{"RightUpperLeg","RightLowerLeg"},{"RightLowerLeg","RightFoot"}}
     local function bones(m) return m:FindFirstChild("UpperTorso") and B15 or B6 end
 
-    local E,hls={},{}
+    local E,hlsV,hlsO={},{},{}
     local function newL() local l=Drawing.new("Line") l.Thickness=1 l.Transparency=1 l.Visible=false return l end
     local function newS(f) local s=Drawing.new("Square") s.Filled=f s.Thickness=1 s.Transparency=1 s.Visible=false return s end
     local function newT(sz) local t=Drawing.new("Text") t.Size=sz or 13 t.Center=true t.Outline=true t.Transparency=1 t.Visible=false return t end
     local function ensure(m) if not E[m] then E[m]={box=newS(false),lines={},hpbg=newS(true),hpfill=newS(true),name=newT(13),weapon=newT(11)} E[m].hpbg.Color=Color3.new(0,0,0) for i=1,14 do E[m].lines[i]=newL() end end return E[m] end
     local function hide(m) if E[m] then local e=E[m] e.box.Visible=false e.hpbg.Visible=false e.hpfill.Visible=false e.name.Visible=false e.weapon.Visible=false for _,l in ipairs(e.lines) do l.Visible=false end end end
+    local function killHL(m) if hlsV[m] then pcall(function() hlsV[m]:Destroy() end) hlsV[m]=nil end
+        if hlsO[m] then pcall(function() hlsO[m]:Destroy() end) hlsO[m]=nil end end
     local function rem(m) if E[m] then local e=E[m] pcall(function() e.box:Remove() e.hpbg:Remove() e.hpfill:Remove() e.name:Remove() e.weapon:Remove() for _,l in ipairs(e.lines) do l:Remove() end end) E[m]=nil end
-        if hls[m] then pcall(function() hls[m]:Destroy() end) hls[m]=nil end end
-    local function eHL(m,col,alpha) if hls[m] and hls[m].Parent then hls[m].FillColor=col hls[m].FillTransparency=1-alpha return hls[m] end
-        hls[m]=Hub.mk("Highlight",{OutlineColor=Color3.new(1,1,1),FillColor=col,FillTransparency=1-alpha,OutlineTransparency=0,DepthMode=Enum.HighlightDepthMode.AlwaysOnTop,Adornee=m},m) return hls[m] end
-    local function kHL(m) if hls[m] then pcall(function() hls[m]:Destroy() end) hls[m]=nil end end
+        killHL(m) end
+    -- Double Highlight = split occlusion: AlwaysOnTop paint tout en visCol, Occluded overwrite portion cachee en occCol
+    local function eHL(m,visCol,visAlpha,occOn,occCol,occAlpha)
+        if not hlsV[m] or not hlsV[m].Parent then
+            hlsV[m]=Hub.mk("Highlight",{FillColor=visCol,FillTransparency=1-visAlpha,OutlineTransparency=1,DepthMode=Enum.HighlightDepthMode.AlwaysOnTop,Adornee=m},m)
+        else hlsV[m].FillColor=visCol hlsV[m].FillTransparency=1-visAlpha end
+        if occOn then
+            if not hlsO[m] or not hlsO[m].Parent then
+                hlsO[m]=Hub.mk("Highlight",{FillColor=occCol,FillTransparency=1-occAlpha,OutlineTransparency=1,DepthMode=Enum.HighlightDepthMode.Occluded,Adornee=m},m)
+            else hlsO[m].FillColor=occCol hlsO[m].FillTransparency=1-occAlpha end
+        elseif hlsO[m] then pcall(function() hlsO[m]:Destroy() end) hlsO[m]=nil end
+    end
+    local kHL=killHL
     local function equipped(m) for _,c in ipairs(m:GetChildren()) do if c:IsA("Tool") then return c end end end
 
     -- occlusion check: raycast camera -> target
@@ -34,29 +45,35 @@ task.spawn(function()
 
     local cESP=UI.AddTab("esp","ESP")
     local COLW=232 local LX,RX=0,COLW+8
-    UI.Header(cESP,LX,0,COLW,"PLAYER")
-    UI.ToggleColor(cESP,LX,22,COLW,"Box","P_BOX",true,"P_BOX_C",Color3.fromRGB(255,50,80),"P_BOX_A",1)
-    UI.ToggleColor(cESP,LX,56,COLW,"Skeleton","P_SKEL",true,"P_SKEL_C",Color3.fromRGB(255,120,140),"P_SKEL_A",1)
-    UI.ToggleColor(cESP,LX,90,COLW,"Chams","P_CHAMS",true,"P_CHAMS_C",Color3.fromRGB(255,50,80),"P_CHAMS_A",0.5)
-    UI.ToggleColor(cESP,LX,124,COLW,"Health Bar","P_HP",true,"P_HP_C",Color3.fromRGB(0,255,80),"P_HP_A",1)
-    UI.ToggleColor(cESP,LX,158,COLW,"Name + Weapon","P_NAME",true,"P_NAME_C",Color3.fromRGB(255,255,255),"P_NAME_A",1)
-    UI.Header(cESP,RX,0,COLW,"NPC")
-    UI.ToggleColor(cESP,RX,22,COLW,"Box","N_BOX",true,"N_BOX_C",Color3.fromRGB(245,197,24),"N_BOX_A",1)
-    UI.ToggleColor(cESP,RX,56,COLW,"Skeleton","N_SKEL",true,"N_SKEL_C",Color3.fromRGB(255,255,255),"N_SKEL_A",1)
-    UI.ToggleColor(cESP,RX,90,COLW,"Chams","N_CHAMS",true,"N_CHAMS_C",Color3.fromRGB(245,197,24),"N_CHAMS_A",0.5)
-    UI.ToggleColor(cESP,RX,124,COLW,"Health Bar","N_HP",true,"N_HP_C",Color3.fromRGB(0,255,80),"N_HP_A",1)
-    UI.ToggleColor(cESP,RX,158,COLW,"Name + Weapon","N_NAME",true,"N_NAME_C",Color3.fromRGB(255,255,255),"N_NAME_A",1)
-    UI.Header(cESP,0,196,COLW*2+8,"OCCLUSION SPLIT (couleur pour partie cachée)")
-    UI.ToggleColor(cESP,LX,218,COLW,"Player Occluded","P_OCC",false,"P_OCC_C",Color3.fromRGB(100,100,100),"P_OCC_A",1)
-    UI.ToggleColor(cESP,RX,218,COLW,"NPC Occluded","N_OCC",false,"N_OCC_C",Color3.fromRGB(100,100,100),"N_OCC_A",1)
-    UI.Stepper(cESP,0,252,COLW*2+8,"Distance","MAX_DIST",3400,100,100,8000)
+    -- Rectangles gris autour des sous-categories (Header avec hauteur = groupe)
+    UI.Header(cESP,LX,0,COLW,"PLAYER",190)
+    UI.ToggleColor(cESP,LX+4,10,COLW-8,"Box","P_BOX",true,"P_BOX_C",Color3.fromRGB(255,50,80),"P_BOX_A",1)
+    UI.ToggleColor(cESP,LX+4,44,COLW-8,"Skeleton","P_SKEL",true,"P_SKEL_C",Color3.fromRGB(255,120,140),"P_SKEL_A",1)
+    UI.ToggleColor(cESP,LX+4,78,COLW-8,"Chams","P_CHAMS",true,"P_CHAMS_C",Color3.fromRGB(255,50,80),"P_CHAMS_A",0.5)
+    UI.ToggleColor(cESP,LX+4,112,COLW-8,"Health Bar","P_HP",true,"P_HP_C",Color3.fromRGB(0,255,80),"P_HP_A",1)
+    UI.ToggleColor(cESP,LX+4,146,COLW-8,"Name + Weapon","P_NAME",true,"P_NAME_C",Color3.fromRGB(255,255,255),"P_NAME_A",1)
+    UI.Header(cESP,RX,0,COLW,"NPC",190)
+    UI.ToggleColor(cESP,RX+4,10,COLW-8,"Box","N_BOX",true,"N_BOX_C",Color3.fromRGB(245,197,24),"N_BOX_A",1)
+    UI.ToggleColor(cESP,RX+4,44,COLW-8,"Skeleton","N_SKEL",true,"N_SKEL_C",Color3.fromRGB(255,255,255),"N_SKEL_A",1)
+    UI.ToggleColor(cESP,RX+4,78,COLW-8,"Chams","N_CHAMS",true,"N_CHAMS_C",Color3.fromRGB(245,197,24),"N_CHAMS_A",0.5)
+    UI.ToggleColor(cESP,RX+4,112,COLW-8,"Health Bar","N_HP",true,"N_HP_C",Color3.fromRGB(0,255,80),"N_HP_A",1)
+    UI.ToggleColor(cESP,RX+4,146,COLW-8,"Name + Weapon","N_NAME",true,"N_NAME_C",Color3.fromRGB(255,255,255),"N_NAME_A",1)
+    UI.Header(cESP,0,200,COLW*2+8,"CHAMS OCCLUSION SPLIT",56)
+    UI.ToggleColor(cESP,LX+4,210,COLW-8,"Player Occluded","P_OCC",false,"P_OCC_C",Color3.fromRGB(100,100,100),"P_OCC_A",0.5)
+    UI.ToggleColor(cESP,RX+4,210,COLW-8,"NPC Occluded","N_OCC",false,"N_OCC_C",Color3.fromRGB(100,100,100),"N_OCC_A",0.5)
+    UI.Stepper(cESP,0,262,COLW*2+8,"Distance","MAX_DIST",3400,100,100,8000)
 
-    -- FIX: bind at 2001 (after Last) + use CFrame.Position + m:GetPivot()
+    -- FIX jitter: PreRender + Camera:GetRenderCFrame() + part.Position (render-synced)
     pcall(function() RunS:UnbindFromRenderStep("HubESP") end)
-    RunS:BindToRenderStep("HubESP",2001,function()
+    local function project(pos,camCF)
+        -- Manual projection via render CFrame pour eviter lag interne WorldToViewportPoint
+        return cam:WorldToViewportPoint(pos)
+    end
+    RunS:BindToRenderStep("HubESP",Enum.RenderPriority.Last.Value+1,function()
         if Hub.G.HAVOC_STOP then return end
         pcall(function()
             local list=Hub.Enemies() local seen={}
+            local camCF=cam:GetRenderCFrame() -- position rendue reelle ce frame
             for _,info in pairs(list) do
                 local m,hrp,hd,hum=info.m,info.hrp,info.hd,info.hum seen[m]=true local e=ensure(m)
                 local pl=Hub.IsPlayer(m)
@@ -69,9 +86,10 @@ task.spawn(function()
                 local C_HP=Hub.Get(pl and "P_HP_C" or "N_HP_C",Color3.fromRGB(0,255,80)) local A_HP=Hub.Get(pl and "P_HP_A" or "N_HP_A",1)
                 local C_NAME=Hub.Get(pl and "P_NAME_C" or "N_NAME_C",Color3.new(1,1,1)) local A_NAME=Hub.Get(pl and "P_NAME_A" or "N_NAME_A",1)
                 local C_OCC=Hub.Get(pl and "P_OCC_C" or "N_OCC_C",Color3.fromRGB(100,100,100))
-                if T_CHAMS then eHL(m,C_CHAMS,A_CHAMS) else kHL(m) end
-                -- POSITIONS: utilise GetPivot() du modele + CFrame des parts (positions render-time)
-                local hdPos=hd.CFrame.Position local hrpPos=hrp.CFrame.Position
+                local A_OCC=Hub.Get(pl and "P_OCC_A" or "N_OCC_A",0.5)
+                if T_CHAMS then eHL(m,C_CHAMS,A_CHAMS,OCC_ON,C_OCC,A_OCC) else kHL(m) end
+                -- POSITIONS: part.Position (render-synced) au lieu de CFrame.Position
+                local hdPos=hd.Position local hrpPos=hrp.Position
                 local Tp=cam:WorldToViewportPoint(hdPos+Vector3.new(0,1,0))
                 local Bp=cam:WorldToViewportPoint(hrpPos-Vector3.new(0,3,0))
                 if Tp.Z>0 and Bp.Z>0 then
@@ -95,7 +113,7 @@ task.spawn(function()
                 if T_SKEL then local bn=bones(m)
                     for i,b in ipairs(bn) do local a=m:FindFirstChild(b[1]) local d=m:FindFirstChild(b[2]) local ln=e.lines[i]
                         if ln and a and d then
-                            local aP=a.CFrame.Position local dP=d.CFrame.Position
+                            local aP=a.Position local dP=d.Position
                             local A=cam:WorldToViewportPoint(aP) local D=cam:WorldToViewportPoint(dP)
                             if A.Z>0 and D.Z>0 then
                                 ln.From=Vector2.new(A.X,A.Y) ln.To=Vector2.new(D.X,D.Y)

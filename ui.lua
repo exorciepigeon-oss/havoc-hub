@@ -33,7 +33,7 @@ local RunS=game:GetService("RunService")
 local rgbTargets={}
 RunS.RenderStepped:Connect(function()
     if Hub.G and Hub.G.HAVOC_STOP then return end
-    local hueNow=(tick()*0.15)%1
+    local hueNow=(tick()*0.35)%1
     local col=Color3.fromHSV(hueNow,1,1)
     for i=#rgbTargets,1,-1 do local f=rgbTargets[i]
         if f.Parent then f.BackgroundColor3=col else table.remove(rgbTargets,i) end
@@ -79,8 +79,8 @@ function UI.OpenPicker(label,getC,setC,getA,setA)
     pk.Visible=true pkUp()
 end
 
--- Main window (scaled so content fills)
-local WIN_W,WIN_H=560,400
+-- Main window (sized to content)
+local WIN_W,WIN_H=540,360
 UI.Root=mk("Frame",{Size=UDim2.new(0,WIN_W,0,WIN_H),Position=UDim2.new(0.5,-WIN_W/2,0.5,-WIN_H/2),BackgroundColor3=T.BG0,BorderSizePixel=0},UI.Gui)
 
 -- Top RGB accent (animated)
@@ -107,8 +107,6 @@ UI.Sidebar=mk("Frame",{Size=UDim2.new(0,SIDE_W,1,-40),Position=UDim2.new(0,0,0,4
 mk("Frame",{Size=UDim2.new(0,1,1,0),Position=UDim2.new(1,-1,0,0),BackgroundColor3=T.LINE,BorderSizePixel=0},UI.Sidebar)
 
 UI.Host=mk("Frame",{Size=UDim2.new(1,-SIDE_W,1,-40),Position=UDim2.new(0,SIDE_W,0,40),BackgroundColor3=T.BG0,BorderSizePixel=0,ClipsDescendants=true},UI.Root)
--- UIScale stretches content to fill host (features use fixed pixel coords ~480x276)
-local hostScale=Instance.new("UIScale") hostScale.Scale=1.04 hostScale.Parent=UI.Host
 
 UI.Tabs={} UI.TabY=12
 UI.CurrentTab=nil
@@ -155,10 +153,21 @@ end
 
 -- === API compat avec ancienne signature (par, x, y, w, ...) ===
 
--- Header = petit titre en haut + soulignement violet (simple, compatible)
-function UI.Header(par,x,y,w,txt)
-    mk("TextLabel",{Size=UDim2.new(0,w,0,14),Position=UDim2.new(0,x+8,0,y+4),BackgroundTransparency=1,Text=txt:upper(),TextColor3=T.ACC,Font=Enum.Font.GothamBold,TextSize=10,TextXAlignment=Enum.TextXAlignment.Center},par)
-    mk("Frame",{Size=UDim2.new(0,w-32,0,1),Position=UDim2.new(0,x+24,0,y+22),BackgroundColor3=T.LINE,BorderSizePixel=0},par)
+-- Header = titre centré + auto-rectangle gris (compat: features passent x/y/w)
+-- Height rectangle deduit du prochain call ou default 200; feature peut passer h en 6e arg
+function UI.Header(par,x,y,w,txt,h)
+    h=h or 34 -- default: juste ligne titre (compat ancienne API)
+    if h>34 then
+        -- Rectangle gris fin autour de la sous-categorie
+        local box=mk("Frame",{Size=UDim2.new(0,w,0,h),Position=UDim2.new(0,x+8,0,y+8),BackgroundTransparency=1,BorderSizePixel=0},par)
+        local stroke=Instance.new("UIStroke") stroke.Color=T.LINE stroke.Thickness=1 stroke.Parent=box
+        -- Titre encoche sur bord haut (fond noir pour breakout du stroke)
+        local lbg=mk("Frame",{Size=UDim2.new(0,#txt*6+16,0,12),Position=UDim2.new(0,12,0,-6),BackgroundColor3=T.BG0,BorderSizePixel=0,ZIndex=3},box)
+        mk("TextLabel",{Size=UDim2.new(1,-4,1,0),Position=UDim2.new(0,2,0,-1),BackgroundTransparency=1,Text=txt:upper(),TextColor3=T.TXT,Font=Enum.Font.GothamBold,TextSize=10,TextXAlignment=Enum.TextXAlignment.Center,ZIndex=4},lbg)
+    else
+        -- Compat: juste titre centré sans underline
+        mk("TextLabel",{Size=UDim2.new(0,w,0,14),Position=UDim2.new(0,x+8,0,y+4),BackgroundTransparency=1,Text=txt:upper(),TextColor3=T.TXT2,Font=Enum.Font.GothamBold,TextSize=10,TextXAlignment=Enum.TextXAlignment.Center},par)
+    end
 end
 
 -- UI.Group : creer un container borde avec titre au-dessus (comme ta ref)
