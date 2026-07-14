@@ -163,6 +163,12 @@ end
 
 function UI.OpenPicker() end
 
+-- UI.Button(par,x,y,w,label,onClick)
+function UI.Button(par,x,y,w,label,onClick)
+    local g=tgt(par) if not g then return end
+    g:AddButton({Text=label,Func=onClick or function() end})
+end
+
 -- UI.Dropdown(par,x,y,w,label, getValueOrKey, setValueOrDefault, values)
 function UI.Dropdown(par,x,y,w,label,getVal,setVal,values)
     local g=tgt(par) if not g then return end

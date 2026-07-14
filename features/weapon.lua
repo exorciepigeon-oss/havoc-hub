@@ -62,6 +62,110 @@ task.spawn(function()
     -- Auto-detect remotes: cache la 1ere instance qui match la signature
     local shootRemote,recoilRemote
 
+    -- ===== PRO TRACER SPAWNER =====
+    -- Reusable par shootRemote hook + Test button + futurs features
+    local TS=game:GetService("TweenService")
+    local function mkAnchor(pos)
+        local p=Instance.new("Part") p.Anchored=true p.CanCollide=false p.CanQuery=false p.CanTouch=false
+        p.Transparency=1 p.Size=Vector3.new(0.1,0.1,0.1) p.CFrame=CFrame.new(pos) p.Parent=workspace
+        return p
+    end
+    local function mkAtt(parent,localPos) local a=Instance.new("Attachment") a.Parent=parent a.Position=localPos return a end
+    local function mkBeam(a0,a1,cfg)
+        local b=Instance.new("Beam")
+        b.Attachment0=a0 b.Attachment1=a1 b.FaceCamera=true b.LightInfluence=0 b.LightEmission=1
+        b.Segments=cfg.segments or 20 b.Width0=cfg.width0 or 0.5 b.Width1=cfg.width1 or (cfg.width0 or 0.5)
+        if cfg.color then b.Color=cfg.color end
+        if cfg.texture then b.Texture=cfg.texture b.TextureLength=cfg.textureLength or 2 b.TextureSpeed=cfg.textureSpeed or 3 b.TextureMode=Enum.TextureMode.Stretch end
+        if cfg.curve0 then b.CurveSize0=cfg.curve0 end
+        if cfg.curve1 then b.CurveSize1=cfg.curve1 end
+        if cfg.transparency then b.Transparency=cfg.transparency end
+        return b
+    end
+
+    function Hub._SpawnTracer(origin,dirVec)
+        local dist=Hub.Get("TRACER_DIST",300)
+        local dir=dirVec.Unit if dir~=dir then return end
+        local endPt=origin+dir*dist
+        local rp=RaycastParams.new() rp.FilterType=Enum.RaycastFilterType.Exclude
+        rp.FilterDescendantsInstances={Hub.lp.Character} rp.IgnoreWater=true
+        local res=workspace:Raycast(origin,dir*dist,rp) if res then endPt=res.Position end
+        local len=(endPt-origin).Magnitude if len<0.5 then return end
+
+        local anchor=mkAnchor(origin)
+        local a0=mkAtt(anchor,Vector3.zero)
+        local a1=mkAtt(anchor,endPt-origin)
+
+        local col=Hub.Get("TRACER_C",Color3.fromRGB(255,80,255))
+        local thick=Hub.Get("TRACER_THICK",6)/10
+        local fx=Hub.Get("TRACER_FX","Laser")
+        local dur=Hub.Get("TRACER_DUR",500)/1000
+        local beams={}
+        local liveHook -- optional per-frame anim callback
+
+        if fx=="Laser" then
+            -- Halo large translucide + core fin bright => effet laser propre
+            table.insert(beams,mkBeam(a0,a1,{width0=thick*3,color=ColorSequence.new(col),transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,0.7),NumberSequenceKeypoint.new(1,0.85)})}))
+            table.insert(beams,mkBeam(a0,a1,{width0=thick*0.6,color=ColorSequence.new(Color3.new(1,1,1),col)}))
+        elseif fx=="Bolt" then
+            -- Éclair jagged intense
+            local seg=32
+            table.insert(beams,mkBeam(a0,a1,{width0=thick*2.5,color=ColorSequence.new(col),transparency=NumberSequence.new(0.6),segments=seg}))
+            local core=mkBeam(a0,a1,{width0=thick*0.8,color=ColorSequence.new(Color3.new(1,1,1),col),segments=seg,
+                curve0=(math.random()*2-1)*len*0.2,curve1=(math.random()*2-1)*len*0.2})
+            table.insert(beams,core)
+        elseif fx=="Trail" then
+            -- Ribbon wide->narrow taper, fade quick
+            table.insert(beams,mkBeam(a0,a1,{width0=thick*4,width1=thick*0.3,color=ColorSequence.new(col)}))
+        elseif fx=="Plasma" then
+            -- ColorSequence cycle animé pendant vie du beam
+            local core=mkBeam(a0,a1,{width0=thick*1.2,curve0=len*0.08,curve1=-len*0.08,segments=28})
+            local halo=mkBeam(a0,a1,{width0=thick*3.5,transparency=NumberSequence.new(0.75)})
+            table.insert(beams,halo) table.insert(beams,core)
+            liveHook=function(t)
+                local h=(tick()*3)%1
+                local c1=Color3.fromHSV(h,1,1) local c2=Color3.fromHSV((h+0.4)%1,1,1)
+                local cs=ColorSequence.new({ColorSequenceKeypoint.new(0,c1),ColorSequenceKeypoint.new(0.5,Color3.new(1,1,1)),ColorSequenceKeypoint.new(1,c2)})
+                core.Color=cs halo.Color=cs
+            end
+        elseif fx=="Glow" then
+            -- Beam très épais LightEmission max, aura douce
+            table.insert(beams,mkBeam(a0,a1,{width0=thick*6,color=ColorSequence.new(col),transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,0.85),NumberSequenceKeypoint.new(0.5,0.7),NumberSequenceKeypoint.new(1,0.85)})}))
+            table.insert(beams,mkBeam(a0,a1,{width0=thick*1.5,color=ColorSequence.new(Color3.new(1,1,1),col)}))
+        elseif fx=="Neon" then
+            table.insert(beams,mkBeam(a0,a1,{width0=thick,color=ColorSequence.new(col)}))
+        elseif fx=="Lightning" then
+            table.insert(beams,mkBeam(a0,a1,{width0=thick,color=ColorSequence.new(col),segments=32,
+                curve0=(math.random()*2-1)*len*0.15,curve1=(math.random()*2-1)*len*0.15}))
+        elseif fx=="Fire" then
+            local cs=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(255,220,0)),ColorSequenceKeypoint.new(0.5,Color3.fromRGB(255,120,0)),ColorSequenceKeypoint.new(1,Color3.fromRGB(200,20,0))})
+            table.insert(beams,mkBeam(a0,a1,{width0=thick*2,color=cs,curve0=len*0.05}))
+        elseif fx=="Rainbow" then
+            local cs=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(255,0,0)),ColorSequenceKeypoint.new(0.2,Color3.fromRGB(255,200,0)),ColorSequenceKeypoint.new(0.4,Color3.fromRGB(0,255,0)),ColorSequenceKeypoint.new(0.6,Color3.fromRGB(0,200,255)),ColorSequenceKeypoint.new(0.8,Color3.fromRGB(80,0,255)),ColorSequenceKeypoint.new(1,Color3.fromRGB(255,0,220))})
+            table.insert(beams,mkBeam(a0,a1,{width0=thick*1.2,color=cs}))
+        elseif fx=="Ghost" then
+            table.insert(beams,mkBeam(a0,a1,{width0=thick,color=ColorSequence.new(col),transparency=NumberSequence.new(0.6)}))
+        else
+            table.insert(beams,mkBeam(a0,a1,{width0=thick,color=ColorSequence.new(col)}))
+        end
+        for _,b in ipairs(beams) do b.Parent=anchor end
+
+        -- Fade + live anim
+        task.spawn(function()
+            local start=tick()
+            while tick()-start<dur do
+                local t=(tick()-start)/dur
+                for _,b in ipairs(beams) do
+                    local base=b.Transparency and b.Transparency.Keypoints[1].Value or 0
+                    b.Transparency=NumberSequence.new(math.min(1,base+t*(1-base)))
+                end
+                if liveHook then liveHook(t) end
+                RunS.RenderStepped:Wait()
+            end
+            anchor:Destroy()
+        end)
+    end
+
     -- HOOK: identifie et intercepte
     local mt=getrawmetatable(game)
     local oldNC=mt.__namecall
@@ -103,79 +207,9 @@ task.spawn(function()
         -- SILENT AIM / NO SPREAD / TRACER sur shootRemote
         if self==shootRemote and n==3 then
             local a1,a2,a3=select(1,...),select(2,...),select(3,...)
-            -- Bullet tracer via Beam (smooth, rounded, effets via presets)
+            -- Bullet tracer via Beam (via fn factorisée, reusable par Test button)
             if Hub.Get("TRACER_ON",false) and typeof(a2)=="Vector3" and typeof(a3)=="Vector3" then
-                task.spawn(function()
-                    local dist=Hub.Get("TRACER_DIST",300)
-                    local dir=a3.Unit if dir~=dir then return end
-                    local endPt=a2+dir*dist
-                    local rp=RaycastParams.new() rp.FilterType=Enum.RaycastFilterType.Exclude
-                    rp.FilterDescendantsInstances={Hub.lp.Character} rp.IgnoreWater=true
-                    local res=workspace:Raycast(a2,dir*dist,rp)
-                    if res then endPt=res.Position end
-                    local len=(endPt-a2).Magnitude
-                    if len<0.5 then return end
-
-                    -- Anchor part invisible + 2 Attachments (Parent AVANT set Position)
-                    local anchor=Instance.new("Part")
-                    anchor.Anchored=true anchor.CanCollide=false anchor.CanQuery=false anchor.CanTouch=false
-                    anchor.Transparency=1 anchor.Size=Vector3.new(0.1,0.1,0.1)
-                    anchor.CFrame=CFrame.new(a2) -- identity rotation, position=a2
-                    anchor.Parent=workspace
-                    local att0=Instance.new("Attachment") att0.Parent=anchor att0.Position=Vector3.zero
-                    local att1=Instance.new("Attachment") att1.Parent=anchor att1.Position=endPt-a2
-
-                    local beam=Instance.new("Beam")
-                    beam.Attachment0=att0 beam.Attachment1=att1
-                    beam.FaceCamera=true beam.LightInfluence=0
-                    local thick=Hub.Get("TRACER_THICK",6)/10
-                    beam.Width0=thick beam.Width1=thick
-                    beam.Segments=12
-
-                    local col=Hub.Get("TRACER_C",Color3.fromRGB(255,80,255))
-                    local fx=Hub.Get("TRACER_FX","Neon")
-                    print("[tracer] fx="..tostring(fx).." len="..tostring(len))
-                    -- Preset par effet
-                    if fx=="Neon" then
-                        beam.LightEmission=1 beam.Color=ColorSequence.new(col)
-                    elseif fx=="Lightning" then
-                        beam.LightEmission=1 beam.Color=ColorSequence.new(col)
-                        beam.CurveSize0=(math.random()*2-1)*len*0.15
-                        beam.CurveSize1=(math.random()*2-1)*len*0.15
-                        beam.Segments=24
-                    elseif fx=="Wavy" then
-                        beam.LightEmission=1 beam.Color=ColorSequence.new(col)
-                        beam.CurveSize0=len*0.08 beam.CurveSize1=-len*0.08
-                    elseif fx=="ForceField" then
-                        beam.LightEmission=0.6 beam.Color=ColorSequence.new(col)
-                        beam.Texture="rbxasset://textures/particles/sparkles_main.dds" beam.TextureLength=2 beam.TextureSpeed=2
-                    elseif fx=="Fire" then
-                        beam.LightEmission=1
-                        beam.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(255,220,0)),ColorSequenceKeypoint.new(0.5,Color3.fromRGB(255,120,0)),ColorSequenceKeypoint.new(1,Color3.fromRGB(200,20,0))})
-                        beam.CurveSize0=len*0.05
-                    elseif fx=="Rainbow" then
-                        beam.LightEmission=1
-                        beam.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(255,0,0)),ColorSequenceKeypoint.new(0.2,Color3.fromRGB(255,200,0)),ColorSequenceKeypoint.new(0.4,Color3.fromRGB(0,255,0)),ColorSequenceKeypoint.new(0.6,Color3.fromRGB(0,200,255)),ColorSequenceKeypoint.new(0.8,Color3.fromRGB(80,0,255)),ColorSequenceKeypoint.new(1,Color3.fromRGB(255,0,220))})
-                    elseif fx=="Plasma" then
-                        beam.LightEmission=1
-                        beam.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(180,0,255)),ColorSequenceKeypoint.new(0.5,Color3.fromRGB(255,255,255)),ColorSequenceKeypoint.new(1,Color3.fromRGB(0,200,255))})
-                        beam.CurveSize0=len*0.1 beam.CurveSize1=-len*0.1
-                    elseif fx=="Ghost" then
-                        beam.LightEmission=0.5 beam.Color=ColorSequence.new(col)
-                        beam.Transparency=NumberSequence.new(0.6)
-                    else beam.LightEmission=1 beam.Color=ColorSequence.new(col) end
-                    beam.Enabled=true beam.Parent=anchor
-
-                    -- Fade manuel (Transparency = NumberSequence, non-tweenable direct)
-                    local dur=Hub.Get("TRACER_DUR",500)/1000
-                    local start=tick()
-                    while tick()-start<dur do
-                        local t=(tick()-start)/dur
-                        beam.Transparency=NumberSequence.new(t)
-                        RunS.RenderStepped:Wait()
-                    end
-                    anchor:Destroy()
-                end)
+                task.spawn(function() Hub._SpawnTracer(a2,a3) end)
             end
             if Hub.Get("SILENT_AIM",false) then
                 local head=cached.head local hpos=cached.pos
@@ -223,12 +257,15 @@ task.spawn(function()
     UI.Stepper(cW,0,102,COLW*2+8,"FOV Size (px)","FOV_SIZE",150,10,20,600)
     UI.Step(cW,0,138,COLW*2+8,"Aim Smooth x100",function() return math.floor(Hub.Get("AIM_SMOOTH",0.35)*100) end,function(v) Hub.Set("AIM_SMOOTH",v/100) end,5,5,100)
 
-    UI.Header(cW,0,172,COLW*2+8,"Bullet Tracer",180)
-    UI.ToggleColor(cW,LX+4,182,COLW-8,"Bullet Tracer","TRACER_ON",false,"TRACER_C",Color3.fromRGB(255,255,0))
-    UI.Dropdown(cW,RX+4,182,COLW-8,"Effect","TRACER_FX","Neon",{"Neon","Lightning","Wavy","ForceField","Fire","Rainbow","Plasma","Ghost"})
+    UI.Header(cW,0,172,COLW*2+8,"Bullet Tracer",220)
+    UI.ToggleColor(cW,LX+4,182,COLW-8,"Bullet Tracer","TRACER_ON",false,"TRACER_C",Color3.fromRGB(255,60,255))
+    UI.Dropdown(cW,RX+4,182,COLW-8,"Effect","TRACER_FX","Laser",{"Laser","Bolt","Trail","Plasma","Glow","Neon","Lightning","Fire","Rainbow","Ghost"})
     UI.Stepper(cW,LX+4,216,COLW-8,"Thickness","TRACER_THICK",6,1,1,30)
     UI.Stepper(cW,RX+4,216,COLW-8,"Duration (ms)","TRACER_DUR",500,50,100,2000)
     UI.Stepper(cW,0,250,COLW*2+8,"Max Distance","TRACER_DIST",300,25,50,1500)
+    UI.Button(cW,0,286,COLW*2+8,"Test Tracer",function()
+        if Hub._SpawnTracer then Hub._SpawnTracer(cam.CFrame.Position+cam.CFrame.RightVector*3,cam.CFrame.LookVector) end
+    end)
 
     Hub.On("shutdown",function() pcall(function() fovCirc:Remove() RunS:UnbindFromRenderStep("HubAim") end) end)
     Hub.RegisterModule("weapon",{Start=function() end})
