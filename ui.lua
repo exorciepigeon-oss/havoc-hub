@@ -135,13 +135,16 @@ end
 UI.Step=UI.Stepper
 function UI.Toggle(par,x,y,w,label,gT,sT) UI.Row(par,x,y,w,label,gT,sT) end
 
-function UI.KeyBind(par,x,y,w,label,getKey,setKey)
+-- UI.KeyBind(par,x,y,w,label, getKeyOrString, setKeyOrDefault, onChange, defaultMode)
+-- onChange(state:bool) fired per KeyPicker mode (Hold/Toggle/Always). Right-click picker for mode menu.
+function UI.KeyBind(par,x,y,w,label,getKey,setKey,onChange,defaultMode)
     local g=tgt(par) if not g then return end
     if type(getKey)=="string" then local k=getKey local d=setKey
         getKey=function() return Hub.Get(k,d) end setKey=function(v) Hub.Set(k,v) end
     end
     local kStr=getKey() or "C"
-    g:AddLabel(label):AddKeyPicker(nid(),{Default=kStr,SyncOnPress=true,Mode="Hold",Text=label,Callback=function() end,
+    g:AddLabel(label):AddKeyPicker(nid(),{Default=kStr,Mode=defaultMode or "Hold",Text=label,
+        Callback=function(state) if onChange then onChange(state) end end,
         ChangedCallback=function(new) if typeof(new)=="EnumItem" then setKey(new.Name) end end})
 end
 

@@ -38,29 +38,17 @@ task.spawn(function()
     -- ZOOM (hold key -> reduit FOV)
     UI.Header(cW,0,220,COLW*2+8,"Zoom",90)
     UI.Row(cW,LX+4,230,COLW-8,"Zoom Enabled","ZOOM_EN",false)
-    UI.KeyBind(cW,RX+4,230,COLW-8,"Zoom Key","ZOOM_KEY","C")
-    UI.Step(cW,0,264,COLW*2+8,"Zoom FOV","ZOOM_FOV",30,5,5,70)
-
-    local cam=Hub.cam local UIS=Hub.UIS
+    local cam=Hub.cam
     local savedFOV=nil local zooming=false
     local function setZoom(on)
         if on and not zooming then savedFOV=cam.FieldOfView zooming=true cam.FieldOfView=Hub.Get("ZOOM_FOV",30)
         elseif not on and zooming then zooming=false if savedFOV then cam.FieldOfView=savedFOV savedFOV=nil end end
     end
-    local function keyMatches(input)
-        local wanted=Hub.Get("ZOOM_KEY","C")
-        if input.UserInputType==Enum.UserInputType.Keyboard then return input.KeyCode.Name==wanted end
-        if input.UserInputType==Enum.UserInputType.MouseButton2 then return wanted=="MouseButton2" end
-        if input.UserInputType==Enum.UserInputType.MouseButton3 then return wanted=="MouseButton3" end
-        return false
-    end
-    UIS.InputBegan:Connect(function(i,gpe)
-        if gpe or Hub.G.HAVOC_STOP then return end
-        if Hub.Get("ZOOM_EN",false) and keyMatches(i) then setZoom(true) end
-    end)
-    UIS.InputEnded:Connect(function(i)
-        if keyMatches(i) then setZoom(false) end
-    end)
+    -- KeyBind callback = mode-aware (Hold par défaut, right-click sur touche pour changer)
+    UI.KeyBind(cW,RX+4,230,COLW-8,"Zoom Key","ZOOM_KEY","C",function(state)
+        if Hub.Get("ZOOM_EN",false) then setZoom(state) end
+    end,"Hold")
+    UI.Step(cW,0,264,COLW*2+8,"Zoom FOV","ZOOM_FOV",30,5,5,70)
     -- Live update FOV pendant zoom si stepper change
     RunS.RenderStepped:Connect(function()
         if zooming and not Hub.G.HAVOC_STOP then cam.FieldOfView=Hub.Get("ZOOM_FOV",30) end

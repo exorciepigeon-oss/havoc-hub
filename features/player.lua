@@ -11,10 +11,10 @@ task.spawn(function()
     local COLW=232 local LX,RX=0,COLW+8
     UI.Header(cP,LX,0,COLW,"Camera Noclip",100)
     UI.Row(cP,LX+4,10,COLW-8,"Camera Noclip","CAM_NOCLIP",false)
-    UI.KeyBind(cP,LX+4,44,COLW-8,"Toggle Key","CAM_NOCLIP_KEY","V")
+    UI.KeyBind(cP,LX+4,44,COLW-8,"Toggle Key","CAM_NOCLIP_KEY","V",function(state) Hub.Set("CAM_NOCLIP",state) end,"Toggle")
     UI.Stepper(cP,LX+4,78,COLW-8,"Cam Speed","CAM_NOCLIP_SPEED",50,5,5,200)
 
-    local fakePart=nil local savedSubject=nil local controls=nil
+    local fakePart=nil local savedSubject=nil local savedType=nil local controls=nil
     local function getControls()
         if controls then return controls end
         local ok,mod=pcall(function()
@@ -28,6 +28,7 @@ task.spawn(function()
         if fakePart then return end
         local c=getControls() if c then pcall(function() c:Disable() end) end
         savedSubject=cam.CameraSubject
+        savedType=cam.CameraType
         fakePart=Instance.new("Part")
         fakePart.Anchored=true fakePart.CanCollide=false fakePart.Transparency=1
         fakePart.Size=Vector3.new(1,1,1) fakePart.CFrame=CFrame.new(cam.CFrame.Position)
@@ -36,7 +37,15 @@ task.spawn(function()
     end
     local function disableNoclip()
         if not fakePart then return end
-        cam.CameraSubject=savedSubject savedSubject=nil
+        -- Restore CameraSubject en priorisant Humanoid vivant (savedSubject peut être stale si respawn)
+        local char=lp.Character
+        local hum=char and char:FindFirstChildOfClass("Humanoid")
+        cam.CameraSubject=(hum and hum) or savedSubject
+        cam.CameraType=savedType or Enum.CameraType.Custom
+        -- Snap CFrame derrière la tête pour éviter cam-dans-tête
+        local head=char and char:FindFirstChild("Head")
+        if head then cam.CFrame=CFrame.new(head.Position-head.CFrame.LookVector*8+Vector3.new(0,2,0),head.Position) end
+        savedSubject=nil savedType=nil
         pcall(function() fakePart:Destroy() end) fakePart=nil
         local c=getControls() if c then pcall(function() c:Enable() end) end
     end
@@ -63,16 +72,7 @@ task.spawn(function()
         end
     end)
 
-    -- Keybind: press to toggle
-    UIS.InputBegan:Connect(function(input,gpe)
-        if gpe or Hub.G.HAVOC_STOP then return end
-        if input.UserInputType~=Enum.UserInputType.Keyboard then return end
-        local wanted=Hub.Get("CAM_NOCLIP_KEY","V")
-        if input.KeyCode.Name==wanted then
-            Hub.Set("CAM_NOCLIP",not Hub.Get("CAM_NOCLIP",false))
-        end
-    end)
-
+    -- Note: KeyBind Callback handles press events (mode-aware: Toggle/Hold/Always via right-click on picker)
     Hub.On("shutdown",function() disableNoclip() end)
     Hub.RegisterModule("player",{Start=function() end})
     print("[Hub Player] loaded (Cam Noclip)")
