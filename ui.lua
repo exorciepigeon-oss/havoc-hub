@@ -163,6 +163,16 @@ end
 
 function UI.OpenPicker() end
 
+-- UI.Dropdown(par,x,y,w,label, getValueOrKey, setValueOrDefault, values)
+function UI.Dropdown(par,x,y,w,label,getVal,setVal,values)
+    local g=tgt(par) if not g then return end
+    if type(getVal)=="string" then local k=getVal local d=setVal
+        getVal=function() return Hub.Get(k,d) end setVal=function(v) Hub.Set(k,v) end
+    end
+    g:AddDropdown(nid(),{Text=label,Values=values or {},Default=getVal() or (values and values[1]) or "",AllowNull=false,
+        Callback=function(v) setVal(v) end})
+end
+
 -- Config tab (delayed so features register first)
 task.spawn(function()
     task.wait(1.5)

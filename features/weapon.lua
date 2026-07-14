@@ -103,29 +103,35 @@ task.spawn(function()
         -- SILENT AIM / NO SPREAD / TRACER sur shootRemote
         if self==shootRemote and n==3 then
             local a1,a2,a3=select(1,...),select(2,...),select(3,...)
-            -- Bullet tracer: origin=a2 (Vector3), dir=a3 (Vector3 unit)
+            -- Bullet tracer
             if Hub.Get("TRACER_ON",false) and typeof(a2)=="Vector3" and typeof(a3)=="Vector3" then
                 task.spawn(function()
                     local dist=Hub.Get("TRACER_DIST",300)
-                    local endPt=a2+a3.Unit*dist
-                    -- Raycast pour hit réel (optionnel)
+                    local dir=a3.Unit
+                    if dir~=dir then return end -- NaN check
+                    local endPt=a2+dir*dist
                     local rp=RaycastParams.new() rp.FilterType=Enum.RaycastFilterType.Exclude
                     rp.FilterDescendantsInstances={Hub.lp.Character} rp.IgnoreWater=true
-                    local res=workspace:Raycast(a2,a3.Unit*dist,rp)
+                    local res=workspace:Raycast(a2,dir*dist,rp)
                     if res then endPt=res.Position end
                     local len=(endPt-a2).Magnitude
+                    if len<0.5 then return end
                     local mid=(a2+endPt)/2
                     local part=Instance.new("Part")
                     part.Anchored=true part.CanCollide=false part.CanQuery=false part.CanTouch=false
-                    part.Material=Enum.Material.Neon part.Color=Hub.Get("TRACER_C",Color3.fromRGB(255,255,0))
-                    local thick=Hub.Get("TRACER_THICK",3)/10
+                    -- Effet: mapping du nom vers Enum.Material
+                    local matName=Hub.Get("TRACER_FX","Neon")
+                    local matMap={Neon=Enum.Material.Neon,ForceField=Enum.Material.ForceField,Glass=Enum.Material.Glass,Metal=Enum.Material.Metal,Plastic=Enum.Material.Plastic,Ice=Enum.Material.Ice,Sand=Enum.Material.Sand,Marble=Enum.Material.Marble,Foil=Enum.Material.Foil}
+                    part.Material=matMap[matName] or Enum.Material.Neon
+                    part.Color=Hub.Get("TRACER_C",Color3.fromRGB(255,255,0))
+                    local thick=Hub.Get("TRACER_THICK",6)/10
                     part.Size=Vector3.new(thick,thick,len)
                     part.CFrame=CFrame.new(mid,endPt)
                     part.Transparency=0
                     part.Parent=workspace
-                    local dur=Hub.Get("TRACER_DUR",300)/1000
+                    local dur=Hub.Get("TRACER_DUR",500)/1000
                     game:GetService("TweenService"):Create(part,TweenInfo.new(dur),{Transparency=1}):Play()
-                    task.wait(dur) part:Destroy()
+                    task.wait(dur+0.05) if part.Parent then part:Destroy() end
                 end)
             end
             if Hub.Get("SILENT_AIM",false) then
@@ -174,11 +180,12 @@ task.spawn(function()
     UI.Stepper(cW,0,102,COLW*2+8,"FOV Size (px)","FOV_SIZE",150,10,20,600)
     UI.Step(cW,0,138,COLW*2+8,"Aim Smooth x100",function() return math.floor(Hub.Get("AIM_SMOOTH",0.35)*100) end,function(v) Hub.Set("AIM_SMOOTH",v/100) end,5,5,100)
 
-    UI.Header(cW,0,172,COLW*2+8,"Bullet Tracer",140)
+    UI.Header(cW,0,172,COLW*2+8,"Bullet Tracer",180)
     UI.ToggleColor(cW,LX+4,182,COLW-8,"Bullet Tracer","TRACER_ON",false,"TRACER_C",Color3.fromRGB(255,255,0))
-    UI.Stepper(cW,RX+4,182,COLW-8,"Duration (ms)","TRACER_DUR",300,50,100,1500)
-    UI.Stepper(cW,LX+4,216,COLW-8,"Thickness","TRACER_THICK",3,1,1,10)
-    UI.Stepper(cW,RX+4,216,COLW-8,"Max Distance","TRACER_DIST",300,25,50,1000)
+    UI.Dropdown(cW,RX+4,182,COLW-8,"Effect","TRACER_FX","Neon",{"Neon","ForceField","Glass","Metal","Plastic","Ice","Sand","Marble","Foil"})
+    UI.Stepper(cW,LX+4,216,COLW-8,"Thickness","TRACER_THICK",6,1,1,30)
+    UI.Stepper(cW,RX+4,216,COLW-8,"Duration (ms)","TRACER_DUR",500,50,100,2000)
+    UI.Stepper(cW,0,250,COLW*2+8,"Max Distance","TRACER_DIST",300,25,50,1500)
 
     Hub.On("shutdown",function() pcall(function() fovCirc:Remove() RunS:UnbindFromRenderStep("HubAim") end) end)
     Hub.RegisterModule("weapon",{Start=function() end})
