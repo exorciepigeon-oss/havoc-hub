@@ -29,13 +29,15 @@ task.spawn(function()
         bb.Adornee=hrp bb.AlwaysOnTop=true
         -- Pixel size = taille écran constante
         bb.Size=UDim2.fromOffset(220,44)
-        bb.StudsOffset=Vector3.new(0,4,0)
+        bb.StudsOffset=Vector3.new(0,2.5,0)
+        -- SizeOffset(-1) => BB entièrement au-dessus point d'ancrage à toute distance
+        bb.SizeOffset=Vector2.new(0,-1)
         bb.LightInfluence=0 bb.MaxDistance=math.huge
         bb.Parent=adornRoot
-        local name=Instance.new("TextLabel") name.Size=UDim2.new(1,0,0.55,0) name.BackgroundTransparency=1
-        name.Font=Enum.Font.GothamBold name.TextSize=13 name.TextColor3=Color3.new(1,1,1)
+        local name=Instance.new("TextLabel") name.Size=UDim2.new(1,0,0.5,0) name.BackgroundTransparency=1
+        name.Font=Enum.Font.Gotham name.TextSize=13 name.TextColor3=Color3.new(1,1,1)
         name.TextStrokeTransparency=0 name.Text="" name.Parent=bb
-        local weap=Instance.new("TextLabel") weap.Size=UDim2.new(1,0,0.45,0) weap.Position=UDim2.new(0,0,0.55,0)
+        local weap=Instance.new("TextLabel") weap.Size=UDim2.new(1,0,0.5,0) weap.Position=UDim2.new(0,0,0.5,0)
         weap.BackgroundTransparency=1 weap.Font=Enum.Font.Gotham weap.TextSize=11 weap.TextColor3=Color3.new(1,1,1)
         weap.TextStrokeTransparency=0.3 weap.Text="" weap.Parent=bb
         return bb,name,weap
@@ -43,8 +45,11 @@ task.spawn(function()
 
     local function mkHpBB(m,hrp)
         local bb=Instance.new("BillboardGui")
-        bb.Adornee=hrp bb.AlwaysOnTop=true bb.Size=UDim2.fromScale(0.25,6)
-        bb.StudsOffset=Vector3.new(-3,0,0)
+        bb.Adornee=hrp bb.AlwaysOnTop=true
+        -- Hybrid: 8px de large fixe + 4 studs + 20px hauteur => toujours visible loin
+        bb.Size=UDim2.new(0,8,4,20)
+        bb.StudsOffset=Vector3.new(-2.5,0,0)
+        bb.SizeOffset=Vector2.new(-0.5,0)
         bb.LightInfluence=0 bb.MaxDistance=math.huge
         bb.Parent=adornRoot
         local bg=Instance.new("Frame") bg.Size=UDim2.fromScale(1,1) bg.BackgroundColor3=Color3.new(0,0,0) bg.BorderSizePixel=0
