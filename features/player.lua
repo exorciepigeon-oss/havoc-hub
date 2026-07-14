@@ -28,30 +28,31 @@ task.spawn(function()
         if ok then controls=mod end
         return controls
     end
-    local anchoredHRP=nil
+    local frozenHRP=nil local frozenCF=nil
     local function getHRP()
         local char=lp.Character return char and char:FindFirstChild("HumanoidRootPart")
     end
     local function enableNoclip()
         if noclipPos then return end
         noclipPos=cam.CFrame.Position
-        -- Anchor HRP client-side pour freeze le char (indétectable = état idle légal)
         local hrp=getHRP()
-        if hrp then anchoredHRP=hrp hrp.Anchored=true end
+        if hrp then frozenHRP=hrp frozenCF=hrp.CFrame end
     end
     local function disableNoclip()
         if not noclipPos then return end
-        noclipPos=nil
-        if anchoredHRP and anchoredHRP.Parent then anchoredHRP.Anchored=false end
-        anchoredHRP=nil
+        noclipPos=nil frozenHRP=nil frozenCF=nil
     end
 
-    -- Sync state
+    -- Sync state + FORCE HRP.CFrame chaque Heartbeat (server voit char idle)
     RunS.Heartbeat:Connect(function()
         if Hub.G.HAVOC_STOP then if noclipPos then disableNoclip() end return end
         local want=Hub.Get("CAM_NOCLIP",false)
         if want and not noclipPos then enableNoclip()
         elseif not want and noclipPos then disableNoclip() end
+        if frozenHRP and frozenHRP.Parent and frozenCF then
+            frozenHRP.CFrame=frozenCF
+            frozenHRP.AssemblyLinearVelocity=Vector3.zero
+        end
     end)
 
     -- Override CFrame APRÈS le camera controller de Havoc (Camera=200 → nous=201)
@@ -73,14 +74,18 @@ task.spawn(function()
         cam.CFrame=cam.CFrame-cam.CFrame.Position+noclipPos
     end)
 
-    -- FOV override: après Last (2001) pour écraser le camera controller de Havoc
-    RunS:BindToRenderStep("HavocFOV",Enum.RenderPriority.Last.Value+1,function()
-        if Hub.G.HAVOC_STOP then return end
-        if Hub.G._ZOOM_ACTIVE then return end
+    -- FOV override: 3 hooks combinés pour battre Havoc à toutes les fenêtres
+    local function applyFOV()
+        if Hub.G.HAVOC_STOP or Hub.G._ZOOM_ACTIVE then return end
         if Hub.Get("FOV_ON",false) then
-            cam.FieldOfView=Hub.Get("FOV_VALUE",70)
+            local target=Hub.Get("FOV_VALUE",70)
+            if cam.FieldOfView~=target then cam.FieldOfView=target end
         end
-    end)
+    end
+    RunS:BindToRenderStep("HavocFOV",Enum.RenderPriority.Last.Value+1,applyFOV)
+    RunS.RenderStepped:Connect(applyFOV)
+    -- Réagit immédiatement à toute modif externe (Havoc controller override → on recorrige)
+    cam:GetPropertyChangedSignal("FieldOfView"):Connect(applyFOV)
 
     Hub.On("shutdown",function()
         disableNoclip()
