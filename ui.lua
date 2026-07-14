@@ -56,9 +56,11 @@ UI.Tabs={} -- name -> {tab=Tab, curLeft=Groupbox, curRight=Groupbox, current=Gro
 local uid=0 local function nid() uid=uid+1 return "hh_"..uid end
 
 function UI.AddTab(name,label,customIcon)
-    local tab=Window:AddTab(label or name,iconMap[name] or "circle")
+    local okT,tab=pcall(function() return Window:AddTab(label or name,iconMap[name] or "circle") end)
+    if not okT or not tab then warn("[UI] AddTab fail "..tostring(name)..": "..tostring(tab)) return name end
     UI.Tabs[name]={tab=tab,curLeft=nil,curRight=nil,current=nil}
-    return name -- return NAME so features pass it as `par`
+    print("[UI] AddTab OK: "..tostring(name))
+    return name
 end
 
 function UI.ShowTab(name)
@@ -74,12 +76,13 @@ end
 
 -- UI.Header: create groupbox on left or right column based on x. Sets current for subsequent widgets.
 function UI.Header(par,x,y,w,txt,h)
-    local e=entry(par) if not e then return end
+    local e=entry(par) if not e or not e.tab then warn("[UI] Header no tab for "..tostring(par)) return end
     local side=(x and x<120) and "Left" or "Right"
     local box
-    -- AddLeftGroupbox(Name, IconName, Visible, Collapsed, DisableCollapsing)
-    if side=="Left" then box=e.tab:AddLeftGroupbox(txt or "",nil,true,false,true) e.curLeft=box
-    else box=e.tab:AddRightGroupbox(txt or "",nil,true,false,true) e.curRight=box end
+    local okB,err
+    if side=="Left" then okB,err=pcall(function() box=e.tab:AddLeftGroupbox(txt or "") end) e.curLeft=box
+    else okB,err=pcall(function() box=e.tab:AddRightGroupbox(txt or "") end) e.curRight=box end
+    if not okB then warn("[UI] Groupbox fail: "..tostring(err)) end
     e.current=box
     return box
 end
@@ -146,7 +149,7 @@ task.spawn(function()
     if Hub.G and Hub.G.HAVOC_STOP then return end
     local cfg=UI.AddTab("config","Config")
     local e=UI.Tabs.config
-    local left=e.tab:AddLeftGroupbox("Menu",nil,true,false,true) e.curLeft=left e.current=left
+    local left=e.tab:AddLeftGroupbox("Menu") e.curLeft=left e.current=left
     -- Menu toggle key picker (fix: ChangedCallback receives Enum.KeyCode)
     local curKey=Hub.Get("MENU_KEY","RightControl")
     left:AddLabel("Menu Toggle Key"):AddKeyPicker(nid(),{Default=curKey,Mode="Toggle",Text="Menu Key",
@@ -170,7 +173,7 @@ task.spawn(function()
     end})
 
     -- CONFIGS (profiles named)
-    local right=e.tab:AddRightGroupbox("Configs",nil,true,false,true) e.curRight=right e.current=right
+    local right=e.tab:AddRightGroupbox("Configs") e.curRight=right e.current=right
     local CFG_DIR="havoc_hub_configs"
     local function ensureDir() if makefolder and not (isfolder and isfolder(CFG_DIR)) then pcall(makefolder,CFG_DIR) end end
     local function listCfgs()
