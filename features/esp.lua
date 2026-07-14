@@ -24,20 +24,46 @@ task.spawn(function()
         for i=1,14 do E[m].lines[i]=newL() end
     end return E[m] end
     local function hide(m) if E[m] then local e=E[m] e.box.Visible=false e.hpbg.Visible=false e.hpfill.Visible=false e.name.Visible=false e.weapon.Visible=false for _,l in ipairs(e.lines) do l.Visible=false end end end
-    local function killHL(m) if hlsV[m] then pcall(function() hlsV[m]:Destroy() end) hlsV[m]=nil end
-        if hlsO[m] then pcall(function() hlsO[m]:Destroy() end) hlsO[m]=nil end end
+    -- Per-limb chams: liste des parts a highlighter (evite les hitboxes/parts fantomes du model)
+    local LIMBS_R15={"Head","UpperTorso","LowerTorso","LeftUpperArm","LeftLowerArm","LeftHand","RightUpperArm","RightLowerArm","RightHand","LeftUpperLeg","LeftLowerLeg","LeftFoot","RightUpperLeg","RightLowerLeg","RightFoot"}
+    local LIMBS_R6={"Head","Torso","Left Arm","Right Arm","Left Leg","Right Leg"}
+    local function limbParts(m)
+        local names=m:FindFirstChild("UpperTorso") and LIMBS_R15 or LIMBS_R6
+        local out={}
+        for _,n in ipairs(names) do local p=m:FindFirstChild(n) if p and p:IsA("BasePart") then table.insert(out,p) end end
+        return out
+    end
+    local function killHL(m)
+        if hlsV[m] then for _,h in ipairs(hlsV[m]) do pcall(function() h:Destroy() end) end hlsV[m]=nil end
+        if hlsO[m] then for _,h in ipairs(hlsO[m]) do pcall(function() h:Destroy() end) end hlsO[m]=nil end
+    end
     local function rem(m) if E[m] then local e=E[m] pcall(function() e.box:Destroy() e.hpbg:Remove() e.hpfill:Remove() e.name:Remove() e.weapon:Remove() for _,l in ipairs(e.lines) do l:Destroy() end end) E[m]=nil end
         killHL(m) end
-    -- Double Highlight = split occlusion: AlwaysOnTop paint tout en visCol, Occluded overwrite portion cachee en occCol
+    -- Per-limb chams: 1 Highlight par part (skip parts fantomes du model)
     local function eHL(m,visCol,visAlpha,occOn,occCol,occAlpha)
-        if not hlsV[m] or not hlsV[m].Parent then
-            hlsV[m]=Hub.mk("Highlight",{FillColor=visCol,FillTransparency=1-visAlpha,OutlineTransparency=1,DepthMode=Enum.HighlightDepthMode.AlwaysOnTop,Adornee=m},m)
-        else hlsV[m].FillColor=visCol hlsV[m].FillTransparency=1-visAlpha end
+        local parts=limbParts(m)
+        hlsV[m]=hlsV[m] or {}
+        for i,p in ipairs(parts) do
+            local h=hlsV[m][i]
+            if not h or not h.Parent then
+                h=Instance.new("Highlight") h.FillColor=visCol h.FillTransparency=1-visAlpha
+                h.OutlineTransparency=1 h.DepthMode=Enum.HighlightDepthMode.AlwaysOnTop h.Adornee=p h.Parent=p
+                hlsV[m][i]=h
+            else h.FillColor=visCol h.FillTransparency=1-visAlpha if h.Adornee~=p then h.Adornee=p h.Parent=p end end
+        end
+        for i=#parts+1,#hlsV[m] do if hlsV[m][i] then pcall(function() hlsV[m][i]:Destroy() end) hlsV[m][i]=nil end end
         if occOn then
-            if not hlsO[m] or not hlsO[m].Parent then
-                hlsO[m]=Hub.mk("Highlight",{FillColor=occCol,FillTransparency=1-occAlpha,OutlineTransparency=1,DepthMode=Enum.HighlightDepthMode.Occluded,Adornee=m},m)
-            else hlsO[m].FillColor=occCol hlsO[m].FillTransparency=1-occAlpha end
-        elseif hlsO[m] then pcall(function() hlsO[m]:Destroy() end) hlsO[m]=nil end
+            hlsO[m]=hlsO[m] or {}
+            for i,p in ipairs(parts) do
+                local h=hlsO[m][i]
+                if not h or not h.Parent then
+                    h=Instance.new("Highlight") h.FillColor=occCol h.FillTransparency=1-occAlpha
+                    h.OutlineTransparency=1 h.DepthMode=Enum.HighlightDepthMode.Occluded h.Adornee=p h.Parent=p
+                    hlsO[m][i]=h
+                else h.FillColor=occCol h.FillTransparency=1-occAlpha if h.Adornee~=p then h.Adornee=p h.Parent=p end end
+            end
+            for i=#parts+1,#hlsO[m] do if hlsO[m][i] then pcall(function() hlsO[m][i]:Destroy() end) hlsO[m][i]=nil end end
+        elseif hlsO[m] then for _,h in ipairs(hlsO[m]) do pcall(function() h:Destroy() end) end hlsO[m]=nil end
     end
     local kHL=killHL
     local function equipped(m) for _,c in ipairs(m:GetChildren()) do if c:IsA("Tool") then return c end end end
