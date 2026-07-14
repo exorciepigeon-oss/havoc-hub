@@ -4,6 +4,15 @@ getgenv().HAVOC_LOADED=true getgenv().HAVOC_STOP=false
 
 local base="https://raw.githubusercontent.com/exorciepigeon-oss/havoc-hub/main/"
 
+-- Fetch latest commit hash from GitHub API for version display
+getgenv().HAVOC_HASH="?"
+pcall(function()
+    local api=game:HttpGet("https://api.github.com/repos/exorciepigeon-oss/havoc-hub/commits?per_page=1",true)
+    local sha=api:match('"sha"%s*:%s*"(%w+)"')
+    if sha then getgenv().HAVOC_HASH=sha:sub(1,7) end
+end)
+print("[Hub] commit "..getgenv().HAVOC_HASH)
+
 local function fetch(path)
     local ok,body=pcall(function() return game:HttpGet(base..path.."?t="..tick(),true) end)
     if not ok then warn("[Hub] fetch fail "..path..": "..tostring(body)) return end

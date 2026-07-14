@@ -1,7 +1,7 @@
 -- HAVOC HUB CORE v3 (namecall passthrough safe for nil args)
 _G.HavocHub=_G.HavocHub or {}
 local Hub=_G.HavocHub
-Hub.Version="v13" Hub.Modules={} Hub.Config={} Hub.CFG_FILE="havoc_hub_cfg.json"
+Hub.Version=getgenv().HAVOC_HASH or "dev" Hub.Modules={} Hub.Config={} Hub.CFG_FILE="havoc_hub_cfg.json"
 Hub.Signals={} Hub.NamecallHooks={} Hub.G=getgenv()
 Hub.UnsafeKeys={AIMBOT=true,SILENT_AIM=true,NO_RECOIL=true,NO_SPREAD=true,TRIGGER=true,NO_SWAY=true}
 
