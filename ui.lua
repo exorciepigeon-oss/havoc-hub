@@ -213,6 +213,29 @@ function UI.Stepper(par,x,y,w,label,gV,sV,st,mn,mx,fmt)
 end
 
 function UI.Step(par,x,y,w,label,gV,sV,st,mn,mx,fmt) UI.Stepper(par,x,y,w,label,gV,sV,st,mn,mx,fmt) end
+
+-- KeyBind: click button, presses next key = bind. Supports keyboard + mouse buttons.
+function UI.KeyBind(par,x,y,w,label,getKey,setKey)
+    if type(getKey)=="string" then local key=getKey local default=setKey
+        getKey=function() return Hub.Get(key,default) end
+        setKey=function(v) Hub.Set(key,v) end
+    end
+    local r=mk("Frame",{Size=UDim2.new(0,w,0,24),Position=UDim2.new(0,x+8,0,y+8),BackgroundTransparency=1},par)
+    mk("TextLabel",{Size=UDim2.new(1,-96,1,0),Position=UDim2.new(0,4,0,0),BackgroundTransparency=1,Text=label,TextColor3=T.TXT,Font=Enum.Font.Gotham,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left},r)
+    local b=mk("TextButton",{Size=UDim2.new(0,88,0,18),Position=UDim2.new(1,-92,0.5,-9),BackgroundColor3=T.BG3,BorderSizePixel=0,Text=tostring(getKey()),TextColor3=T.TXT,Font=Enum.Font.GothamBold,TextSize=10,Stroke=T.LINE},r)
+    local waiting=false
+    b.MouseButton1Click:Connect(function()
+        if waiting then return end waiting=true b.Text="[press key]"
+        local conn conn=UIS.InputBegan:Connect(function(i,gpe)
+            if gpe then return end
+            local name=nil
+            if i.UserInputType==Enum.UserInputType.Keyboard then name=i.KeyCode.Name
+            elseif i.UserInputType==Enum.UserInputType.MouseButton2 then name="MouseButton2"
+            elseif i.UserInputType==Enum.UserInputType.MouseButton3 then name="MouseButton3" end
+            if name then setKey(name) b.Text=name waiting=false conn:Disconnect() end
+        end)
+    end)
+end
 function UI.Toggle(par,x,y,w,label,gT,sT) UI.Row(par,x,y,w,label,gT,sT) end
 function UI.ToggleColor(par,x,y,w,label,keyT,defT,keyC,defC,keyA,defA)
     UI.Row(par,x,y,w,label,function() return Hub.Get(keyT,defT) end,function(v) Hub.Set(keyT,v) end,

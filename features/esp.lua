@@ -63,17 +63,22 @@ task.spawn(function()
     UI.ToggleColor(cESP,RX+4,210,COLW-8,"NPC Occluded","N_OCC",false,"N_OCC_C",Color3.fromRGB(100,100,100),"N_OCC_A",0.5)
     UI.Stepper(cESP,0,262,COLW*2+8,"Distance","MAX_DIST",3400,100,100,8000)
 
-    -- FIX jitter: PreRender + Camera:GetRenderCFrame() + part.Position (render-synced)
+    -- FIX jitter: manual projection avec GetRenderCFrame (bypass WorldToViewportPoint lag)
     pcall(function() RunS:UnbindFromRenderStep("HubESP") end)
-    local function project(pos,camCF)
-        -- Manual projection via render CFrame pour eviter lag interne WorldToViewportPoint
-        return cam:WorldToViewportPoint(pos)
+    local function project(pos,camCF,vp,halfW,halfH)
+        local rel=camCF:PointToObjectSpace(pos)
+        if rel.Z>=0 then return Vector3.new(0,0,-1) end
+        local ndcX=rel.X/(-rel.Z*halfW) local ndcY=-rel.Y/(-rel.Z*halfH)
+        return Vector3.new((ndcX*0.5+0.5)*vp.X,(ndcY*0.5+0.5)*vp.Y,-rel.Z)
     end
     RunS:BindToRenderStep("HubESP",Enum.RenderPriority.Last.Value+1,function()
         if Hub.G.HAVOC_STOP then return end
         pcall(function()
             local list=Hub.Enemies() local seen={}
-            local camCF=cam:GetRenderCFrame() -- position rendue reelle ce frame
+            local camCF=cam:GetRenderCFrame()
+            local vp=cam.ViewportSize
+            local halfH=math.tan(math.rad(cam.FieldOfView)/2)
+            local halfW=halfH*(vp.X/vp.Y)
             for _,info in pairs(list) do
                 local m,hrp,hd,hum=info.m,info.hrp,info.hd,info.hum seen[m]=true local e=ensure(m)
                 local pl=Hub.IsPlayer(m)
@@ -90,19 +95,17 @@ task.spawn(function()
                 if T_CHAMS then eHL(m,C_CHAMS,A_CHAMS,OCC_ON,C_OCC,A_OCC) else kHL(m) end
                 -- POSITIONS: part.Position (render-synced) au lieu de CFrame.Position
                 local hdPos=hd.Position local hrpPos=hrp.Position
-                local Tp=cam:WorldToViewportPoint(hdPos+Vector3.new(0,1,0))
-                local Bp=cam:WorldToViewportPoint(hrpPos-Vector3.new(0,3,0))
+                local Tp=project(hdPos+Vector3.new(0,1,0),camCF,vp,halfW,halfH)
+                local Bp=project(hrpPos-Vector3.new(0,3,0),camCF,vp,halfW,halfH)
                 if Tp.Z>0 and Bp.Z>0 then
                     local ht=math.abs(Bp.Y-Tp.Y) local w=ht*0.5 local cx=(Tp.X+Bp.X)/2 local topY=math.min(Tp.Y,Bp.Y)
                     if T_BOX then
-                        local col=C_BOX if OCC_ON and not visible(hrpPos,m) then col=C_OCC end
-                        e.box.Position=Vector2.new(cx-w/2,topY) e.box.Size=Vector2.new(w,ht) e.box.Color=col e.box.Transparency=A_BOX e.box.Visible=true
+                        e.box.Position=Vector2.new(cx-w/2,topY) e.box.Size=Vector2.new(w,ht) e.box.Color=C_BOX e.box.Transparency=A_BOX e.box.Visible=true
                     else e.box.Visible=false end
                     if T_NAME then
-                        local col=C_NAME if OCC_ON and not visible(hdPos,m) then col=C_OCC end
                         local line=m.Name.."  ["..math.floor(info.dist).."m]" if T_HP then line=line.."  "..math.floor(hum.Health).."hp" end
-                        e.name.Text=line e.name.Position=Vector2.new(cx,topY-30) e.name.Color=col e.name.Transparency=A_NAME e.name.Visible=true
-                        local tl=equipped(m) if tl then e.weapon.Text=tl.Name e.weapon.Position=Vector2.new(cx,topY-16) e.weapon.Color=col e.weapon.Transparency=A_NAME e.weapon.Visible=true else e.weapon.Visible=false end
+                        e.name.Text=line e.name.Position=Vector2.new(cx,topY-30) e.name.Color=C_NAME e.name.Transparency=A_NAME e.name.Visible=true
+                        local tl=equipped(m) if tl then e.weapon.Text=tl.Name e.weapon.Position=Vector2.new(cx,topY-16) e.weapon.Color=C_NAME e.weapon.Transparency=A_NAME e.weapon.Visible=true else e.weapon.Visible=false end
                     else e.name.Visible=false e.weapon.Visible=false end
                     if T_HP then local f=math.clamp(hum.Health/math.max(hum.MaxHealth,1),0,1) local x=cx-w/2-6
                         e.hpbg.Position=Vector2.new(x-1,topY-1) e.hpbg.Size=Vector2.new(5,ht+2) e.hpbg.Transparency=A_HP e.hpbg.Visible=true
@@ -114,12 +117,10 @@ task.spawn(function()
                     for i,b in ipairs(bn) do local a=m:FindFirstChild(b[1]) local d=m:FindFirstChild(b[2]) local ln=e.lines[i]
                         if ln and a and d then
                             local aP=a.Position local dP=d.Position
-                            local A=cam:WorldToViewportPoint(aP) local D=cam:WorldToViewportPoint(dP)
+                            local A=project(aP,camCF,vp,halfW,halfH) local D=project(dP,camCF,vp,halfW,halfH)
                             if A.Z>0 and D.Z>0 then
                                 ln.From=Vector2.new(A.X,A.Y) ln.To=Vector2.new(D.X,D.Y)
-                                local col=C_SKEL
-                                if OCC_ON then local mid=(aP+dP)/2 if not visible(mid,m) then col=C_OCC end end
-                                ln.Color=col ln.Transparency=A_SKEL ln.Visible=true
+                                ln.Color=C_SKEL ln.Transparency=A_SKEL ln.Visible=true
                             else ln.Visible=false end
                         elseif ln then ln.Visible=false end end
                     for i=#bn+1,14 do if e.lines[i] then e.lines[i].Visible=false end end

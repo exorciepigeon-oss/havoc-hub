@@ -32,12 +32,12 @@ task.spawn(function()
 
     -- UI tab
     local cW=UI.AddTab("world","WORLD") local COLW=232 local LX,RX=0,COLW+8
-    UI.Header(cW,0,0,COLW*2+8,"LOOT ESP")
-    UI.ToggleColor(cW,LX,22,COLW,"Weapons","LOOT_W",false,"LOOT_W_C",Color3.fromRGB(255,100,50))
-    UI.ToggleColor(cW,RX,22,COLW,"Valuables","LOOT_V",false,"LOOT_V_C",Color3.fromRGB(255,215,0))
-    UI.ToggleColor(cW,LX,56,COLW,"Simple Items","LOOT_S",false,"LOOT_S_C",Color3.fromRGB(120,200,255))
-    UI.ToggleColor(cW,RX,56,COLW,"Mines / Barrels","MINE_ESP",false,"MINE_C",Color3.fromRGB(255,60,60))
-    UI.Stepper(cW,0,90,COLW*2+8,"Loot Distance","LOOT_DIST",500,50,50,2000)
+    UI.Header(cW,0,0,COLW*2+8,"LOOT ESP",120)
+    UI.ToggleColor(cW,LX+4,10,COLW-8,"Weapons","LOOT_W",false,"LOOT_W_C",Color3.fromRGB(255,100,50))
+    UI.ToggleColor(cW,RX+4,10,COLW-8,"Valuables","LOOT_V",false,"LOOT_V_C",Color3.fromRGB(255,215,0))
+    UI.ToggleColor(cW,LX+4,44,COLW-8,"Simple Items","LOOT_S",false,"LOOT_S_C",Color3.fromRGB(120,200,255))
+    UI.ToggleColor(cW,RX+4,44,COLW-8,"Mines / Barrels","MINE_ESP",false,"MINE_C",Color3.fromRGB(255,60,60))
+    UI.Stepper(cW,0,78,COLW*2+8,"Loot Distance","LOOT_DIST",500,50,50,2000)
 
     RunS.RenderStepped:Connect(function()
         if Hub.G.HAVOC_STOP then return end
