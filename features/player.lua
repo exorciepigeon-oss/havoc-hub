@@ -5,6 +5,7 @@ Hub.UnsafeKeys.CAM_NOCLIP=true
 task.spawn(function()
     while not Hub.UI or not Hub.UI.AddTab do task.wait(0.05) end
     local UI=Hub.UI local RunS=Hub.RunS local UIS=Hub.UIS local cam=Hub.cam local lp=Hub.lp
+    local CAS=game:GetService("ContextActionService")
 
     local cP=UI.AddTab("player","Player")
     local COLW=232 local LX,RX=0,COLW+8
@@ -23,16 +24,21 @@ task.spawn(function()
         if ok then controls=mod end
         return controls
     end
+    local SINK_NAME="HavocHub_NoclipSink"
+    local sinkKeys={Enum.KeyCode.W,Enum.KeyCode.A,Enum.KeyCode.S,Enum.KeyCode.D,Enum.KeyCode.Q,Enum.KeyCode.E,Enum.KeyCode.Z,Enum.KeyCode.Space,Enum.KeyCode.LeftShift}
+    local function sinkFn() return Enum.ContextActionResult.Sink end
     local function enableNoclip()
         if noclipPos then return end
         noclipPos=cam.CFrame.Position
         local c=getControls() if c then pcall(function() c:Disable() end) end
+        -- Sink WASD/ZQSD/Space/Shift priorité max => Havoc les voit pas
+        pcall(function() CAS:BindActionAtPriority(SINK_NAME,sinkFn,false,Enum.ContextActionPriority.High.Value+9000,table.unpack(sinkKeys)) end)
     end
     local function disableNoclip()
         if not noclipPos then return end
         noclipPos=nil
+        pcall(function() CAS:UnbindAction(SINK_NAME) end)
         local c=getControls() if c then pcall(function() c:Enable() end) end
-        -- Rien à toucher côté cam: Havoc reprend la main dès que on n'override plus
     end
 
     -- Sync state
