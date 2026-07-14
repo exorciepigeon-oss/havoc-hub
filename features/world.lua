@@ -5,7 +5,7 @@ task.spawn(function()
     -- attendre que loot.lua ait cree le tab WORLD
     while not (Hub.UI.Tabs and Hub.UI.Tabs.world) do task.wait(0.05) end
     local UI=Hub.UI local Lighting=Hub.Lighting local RunS=Hub.RunS
-    local cW=Hub.UI.Tabs.world.c
+    local cW="world"
 
     local savedAmb,savedFogB,savedOut,savedBright=nil,nil,nil,nil
     local savedFogStart,savedFogEnd,savedFogColor=nil,nil,nil
@@ -97,7 +97,9 @@ task.spawn(function()
     Hub.On("shutdown",function()
         if zooming and savedFOV then cam.FieldOfView=savedFOV end
         if ccEffect then pcall(function() ccEffect:Destroy() end) end
-        if savedAmb then pcall(function() Lighting.Ambient=savedAmb Lighting.OutdoorAmbient=savedOut Lighting.FogEnd=savedFog Lighting.Brightness=savedBright Lighting.GlobalShadows=true end) end
+        if savedAmb then pcall(function() Lighting.Ambient=savedAmb Lighting.OutdoorAmbient=savedOut Lighting.Brightness=savedBright Lighting.GlobalShadows=true end) end
+        if savedFogEnd then pcall(function() Lighting.FogStart=savedFogStart Lighting.FogEnd=savedFogEnd Lighting.FogColor=savedFogColor end) end
+        if savedDeco~=nil and Terrain then pcall(function() Terrain.Decoration=savedDeco end) end
     end)
     Hub.RegisterModule("world",{Start=function() end})
     print("[Hub World] loaded (+ zoom)")
