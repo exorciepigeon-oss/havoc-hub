@@ -136,16 +136,25 @@ UI.Step=UI.Stepper
 function UI.Toggle(par,x,y,w,label,gT,sT) UI.Row(par,x,y,w,label,gT,sT) end
 
 -- UI.KeyBind(par,x,y,w,label, getKeyOrString, setKeyOrDefault, onChange, defaultMode)
--- onChange(state:bool) fired per KeyPicker mode (Hold/Toggle/Always). Right-click picker for mode menu.
+-- Poll GetState() car Obsidian ne fire pas Callback pour Hold mode
 function UI.KeyBind(par,x,y,w,label,getKey,setKey,onChange,defaultMode)
     local g=tgt(par) if not g then return end
     if type(getKey)=="string" then local k=getKey local d=setKey
         getKey=function() return Hub.Get(k,d) end setKey=function(v) Hub.Set(k,v) end
     end
     local kStr=getKey() or "C"
-    g:AddLabel(label):AddKeyPicker(nid(),{Default=kStr,Mode=defaultMode or "Hold",Text=label,
-        Callback=function(state) if onChange then onChange(state) end end,
+    local kp=g:AddLabel(label):AddKeyPicker(nid(),{Default=kStr,Mode=defaultMode or "Hold",Text=label,
         ChangedCallback=function(new) if typeof(new)=="EnumItem" then setKey(new.Name) end end})
+    if onChange and kp then
+        local lastState=false
+        game:GetService("RunService").Heartbeat:Connect(function()
+            if Hub.G and Hub.G.HAVOC_STOP then return end
+            local ok,st=pcall(function() return kp:GetState() end)
+            if ok then st=st and true or false
+                if st~=lastState then lastState=st onChange(st) end
+            end
+        end)
+    end
 end
 
 function UI.OpenPicker() end

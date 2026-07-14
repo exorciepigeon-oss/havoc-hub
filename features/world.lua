@@ -25,13 +25,23 @@ task.spawn(function()
             if savedAmb then Lighting.Ambient=savedAmb Lighting.OutdoorAmbient=savedOut Lighting.Brightness=savedBright Lighting.GlobalShadows=(savedGS~=nil and savedGS or true) savedAmb=nil savedOut=nil savedBright=nil savedGS=nil end
         end
     end
+    local savedAtmoDensity,savedAtmoHaze,savedAtmoGlare=nil,nil,nil
     local function applyFog()
+        local atmo=Lighting:FindFirstChildOfClass("Atmosphere")
         if Hub.Get("NO_FOG",false) then
             if not savedFogStart then savedFogStart=Lighting.FogStart savedFogEnd=Lighting.FogEnd savedFogColor=Lighting.FogColor end
-            if Lighting.FogEnd~=100000 then Lighting.FogEnd=100000 end
-            if Lighting.FogStart~=100000 then Lighting.FogStart=100000 end
+            if Lighting.FogEnd<100000 then Lighting.FogEnd=100000 end
+            if Lighting.FogStart<100000 then Lighting.FogStart=100000 end
+            -- Atmosphere (postprocess moderne utilisé par Havoc)
+            if atmo then
+                if savedAtmoDensity==nil then savedAtmoDensity=atmo.Density savedAtmoHaze=atmo.Haze savedAtmoGlare=atmo.Glare end
+                if atmo.Density~=0 then atmo.Density=0 end
+                if atmo.Haze~=0 then atmo.Haze=0 end
+                if atmo.Glare~=0 then atmo.Glare=0 end
+            end
         else
             if savedFogStart then Lighting.FogStart=savedFogStart Lighting.FogEnd=savedFogEnd Lighting.FogColor=savedFogColor savedFogStart=nil savedFogEnd=nil savedFogColor=nil end
+            if atmo and savedAtmoDensity~=nil then atmo.Density=savedAtmoDensity atmo.Haze=savedAtmoHaze atmo.Glare=savedAtmoGlare savedAtmoDensity=nil savedAtmoHaze=nil savedAtmoGlare=nil end
         end
     end
     local function applyGrass()
@@ -50,16 +60,18 @@ task.spawn(function()
             local target=Hub.Get("TIME",14)
             if math.abs(Lighting.ClockTime-target)>0.01 then Lighting.ClockTime=target end
         else
-            savedClockTime=nil
-            -- OFF: on lâche, Havoc reprend son cycle naturel
+            -- OFF: restore le ClockTime que Havoc avait avant qu'on override (pas de cycle => nécessaire)
+            if savedClockTime~=nil then Lighting.ClockTime=savedClockTime savedClockTime=nil end
         end
     end
     local function applyColor()
         if Hub.Get("COLOR_ON",false) then
             if not ccEffect or not ccEffect.Parent then ccEffect=Instance.new("ColorCorrectionEffect") ccEffect.Name="HavocHub_CC" ccEffect.Parent=Lighting end
-            ccEffect.TintColor=Hub.Get("WORLD_C",Color3.fromRGB(255,255,255))
+            local target=Hub.Get("WORLD_C",Color3.fromRGB(255,255,255))
+            if ccEffect.TintColor~=target then ccEffect.TintColor=target end
         else
-            if ccEffect then pcall(function() ccEffect:Destroy() end) ccEffect=nil end
+            -- Reset tint puis destroy (au cas où qqch pointe encore dessus)
+            if ccEffect then pcall(function() ccEffect.TintColor=Color3.new(1,1,1) ccEffect:Destroy() end) ccEffect=nil end
         end
     end
 
