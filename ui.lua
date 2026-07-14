@@ -1,32 +1,49 @@
 -- HAVOC HUB UI : Obsidian adapter (features API unchanged)
 local Hub=_G.HavocHub if not Hub then warn("[UI] core not loaded") return end
+print("[UI] step 1: Hub found")
 
 -- Nuke prior UIs on reload
 pcall(function()
     for _,g in ipairs(game:GetService("CoreGui"):GetChildren()) do
         local n=g.Name
-        if n=="LinoriaLib" or n=="Obsidian" or n=="FluentRenewedInterface" or n=="Fluent" or n=="HavocHub" then g:Destroy() end
+        if n=="LinoriaLib" or n=="Obsidian" or n=="FluentRenewedInterface" or n=="Fluent" or n=="HavocHub" or n=="Library" or n=="HavocHub_ESPNative" then g:Destroy() end
     end
 end)
 
-local repo="https://raw.githubusercontent.com/deividcomsono/Obsidian/main/"
-local ok,Library=pcall(function() return loadstring(game:HttpGet(repo.."Library.lua"))() end)
-if not ok or not Library then warn("[UI] Obsidian load fail: "..tostring(Library)) return end
+-- Unload previous Library instance if present
+if Hub.UI and Hub.UI.Library then pcall(function() Hub.UI.Library:Unload() end) end
 
-if Hub.UI and Hub.UI.Window then pcall(function() Library:Unload() end) end
+print("[UI] step 2: fetching Obsidian")
+local repo="https://raw.githubusercontent.com/deividcomsono/Obsidian/main/"
+local okFetch,body=pcall(function() return game:HttpGet(repo.."Library.lua") end)
+if not okFetch or type(body)~="string" or #body<1000 then
+    warn("[UI] Obsidian HttpGet failed. Err: "..tostring(body):sub(1,200)) return
+end
+local libFn,compileErr=loadstring(body,"Obsidian.Library")
+if not libFn then warn("[UI] Obsidian compile fail: "..tostring(compileErr)) return end
+local okRun,Library=pcall(libFn)
+if not okRun or not Library then warn("[UI] Obsidian run fail: "..tostring(Library)) return end
+print("[UI] step 3: Obsidian loaded")
+
 Hub.UI={}
 local UI=Hub.UI
 UI.Library=Library
 
-local Window=Library:CreateWindow({
-    Title="Havoc Hub",
-    Footer=Hub.Version or "",
-    Center=true,
-    AutoShow=true,
-    Size=UDim2.fromOffset(580,520),
-    MenuFadeTime=0.15,
-})
+local okWin,Window=pcall(function()
+    return Library:CreateWindow({
+        Title="Havoc Hub",
+        Footer=Hub.Version or "v13",
+        Center=true,
+        AutoShow=true,
+        Size=UDim2.fromOffset(580,520),
+    })
+end)
+if not okWin or not Window then warn("[UI] CreateWindow failed: "..tostring(Window)) return end
 UI.Window=Window
+print("[UI] step 4: window created")
+
+-- Force show in case AutoShow race
+task.spawn(function() task.wait(0.1) pcall(function() if not Library.Toggled then Library:Toggle() end end) end)
 
 local iconMap={esp="eye",world="globe",weapon="crosshair",misc="settings-2",config="sliders",player="user",inventory="backpack",loot="globe"}
 
