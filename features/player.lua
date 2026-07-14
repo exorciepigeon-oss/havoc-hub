@@ -74,13 +74,13 @@ task.spawn(function()
         cam.CFrame=cam.CFrame-cam.CFrame.Position+noclipPos
     end)
 
-    -- FOV override: 3 hooks combinés pour battre Havoc à toutes les fenêtres
+    -- FOV override: 3 hooks combinés (zoom prioritaire, sinon FOV custom)
     local function applyFOV()
-        if Hub.G.HAVOC_STOP or Hub.G._ZOOM_ACTIVE then return end
-        if Hub.Get("FOV_ON",false) then
-            local target=Hub.Get("FOV_VALUE",70)
-            if cam.FieldOfView~=target then cam.FieldOfView=target end
-        end
+        if Hub.G.HAVOC_STOP then return end
+        local target=nil
+        if Hub.G._ZOOM_ACTIVE then target=Hub.Get("ZOOM_FOV",30)
+        elseif Hub.Get("FOV_ON",false) then target=Hub.Get("FOV_VALUE",70) end
+        if target and cam.FieldOfView~=target then cam.FieldOfView=target end
     end
     RunS:BindToRenderStep("HavocFOV",Enum.RenderPriority.Last.Value+1,applyFOV)
     RunS.RenderStepped:Connect(applyFOV)
