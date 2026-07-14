@@ -32,10 +32,16 @@ task.spawn(function()
     local function applyGrass()
         if not Terrain then return end
         if Hub.Get("NO_GRASS",false) then
-            if savedDeco==nil then savedDeco=Terrain.Decoration end
-            Terrain.Decoration=false
+            -- Decoration non-scriptable en 2024+, on essaie plusieurs API
+            pcall(function()
+                if savedDeco==nil then savedDeco=Terrain.Decoration end
+                Terrain.Decoration=false
+            end)
+            -- Fallback executor: sethiddenproperty
+            if sethiddenproperty then pcall(sethiddenproperty,Terrain,"Decoration",false) end
         else
-            if savedDeco~=nil then Terrain.Decoration=savedDeco savedDeco=nil end
+            pcall(function() if savedDeco~=nil then Terrain.Decoration=savedDeco savedDeco=nil end end)
+            if sethiddenproperty then pcall(sethiddenproperty,Terrain,"Decoration",true) end
         end
     end
     local function applyTime()
@@ -58,7 +64,7 @@ task.spawn(function()
             applyWorld()
         end)
     end
-    if Terrain then Terrain:GetPropertyChangedSignal("Decoration"):Connect(function() if not applying and Hub.Get("NO_GRASS",false) then applyGrass() end end) end
+    if Terrain then pcall(function() Terrain:GetPropertyChangedSignal("Decoration"):Connect(function() if not applying and Hub.Get("NO_GRASS",false) then applyGrass() end end) end) end
 
     local COLW=232 local LX,RX=0,COLW+8
     UI.Header(cW,0,130,COLW*2+8,"Environment",180)
