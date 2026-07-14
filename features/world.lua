@@ -41,8 +41,8 @@ task.spawn(function()
     local cam=Hub.cam
     local savedFOV=nil local zooming=false
     local function setZoom(on)
-        if on and not zooming then savedFOV=cam.FieldOfView zooming=true cam.FieldOfView=Hub.Get("ZOOM_FOV",30)
-        elseif not on and zooming then zooming=false if savedFOV then cam.FieldOfView=savedFOV savedFOV=nil end end
+        if on and not zooming then savedFOV=cam.FieldOfView zooming=true Hub.G._ZOOM_ACTIVE=true cam.FieldOfView=Hub.Get("ZOOM_FOV",30)
+        elseif not on and zooming then zooming=false Hub.G._ZOOM_ACTIVE=false if savedFOV then cam.FieldOfView=savedFOV savedFOV=nil end end
     end
     -- KeyBind callback = mode-aware (Hold par défaut, right-click sur touche pour changer)
     UI.KeyBind(cW,RX+4,230,COLW-8,"Zoom Key","ZOOM_KEY","C",function(state)

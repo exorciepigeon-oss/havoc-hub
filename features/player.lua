@@ -14,6 +14,10 @@ task.spawn(function()
     UI.KeyBind(cP,LX+4,44,COLW-8,"Toggle Key","CAM_NOCLIP_KEY","V",function(state) Hub.Set("CAM_NOCLIP",state) end,"Toggle")
     UI.Stepper(cP,LX+4,78,COLW-8,"Cam Speed","CAM_NOCLIP_SPEED",50,5,5,200)
 
+    UI.Header(cP,RX,0,COLW,"Camera",70)
+    UI.Row(cP,RX+4,10,COLW-8,"Custom FOV","FOV_ON",false)
+    UI.Stepper(cP,RX+4,44,COLW-8,"FOV","FOV_VALUE",70,1,30,120)
+
     local noclipPos=nil local controls=nil
     local function getControls()
         if controls then return controls end
@@ -68,9 +72,19 @@ task.spawn(function()
         cam.CFrame=cam.CFrame-cam.CFrame.Position+noclipPos
     end)
 
+    -- FOV override: applique FOV_VALUE si toggle ON, cede à zoom si actif
+    RunS:BindToRenderStep("HavocFOV",Enum.RenderPriority.Camera.Value+2,function()
+        if Hub.G.HAVOC_STOP then return end
+        if Hub.G._ZOOM_ACTIVE then return end
+        if Hub.Get("FOV_ON",false) then
+            cam.FieldOfView=Hub.Get("FOV_VALUE",70)
+        end
+    end)
+
     Hub.On("shutdown",function()
         disableNoclip()
         pcall(function() RunS:UnbindFromRenderStep("HavocNoclipCam") end)
+        pcall(function() RunS:UnbindFromRenderStep("HavocFOV") end)
     end)
     Hub.RegisterModule("player",{Start=function() end})
     print("[Hub Player] loaded (Cam Noclip via CFrame override)")
