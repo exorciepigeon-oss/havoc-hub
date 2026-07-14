@@ -37,17 +37,19 @@ task.spawn(function()
     end
     local function disableNoclip()
         if not fakePart then return end
-        -- Restore CameraSubject en priorisant Humanoid vivant (savedSubject peut être stale si respawn)
-        local char=lp.Character
-        local hum=char and char:FindFirstChildOfClass("Humanoid")
-        cam.CameraSubject=(hum and hum) or savedSubject
+        -- Re-enable controls d'abord (rend le PlayerModule opérationnel)
+        local c=getControls() if c then pcall(function() c:Enable() end) end
+        -- Restore CameraSubject: use savedSubject si toujours valide (parent existe), sinon Humanoid
+        local subj=savedSubject
+        if not subj or not subj.Parent then
+            local char=lp.Character
+            subj=char and char:FindFirstChildOfClass("Humanoid")
+        end
+        if subj then cam.CameraSubject=subj end
         cam.CameraType=savedType or Enum.CameraType.Custom
-        -- Snap CFrame derrière la tête pour éviter cam-dans-tête
-        local head=char and char:FindFirstChild("Head")
-        if head then cam.CFrame=CFrame.new(head.Position-head.CFrame.LookVector*8+Vector3.new(0,2,0),head.Position) end
         savedSubject=nil savedType=nil
         pcall(function() fakePart:Destroy() end) fakePart=nil
-        local c=getControls() if c then pcall(function() c:Enable() end) end
+        -- Laisse Havoc reprendre le contrôle de la cam sans forcer de CFrame
     end
 
     -- Sync state each frame + move fakePart via WASD/Space/Shift
