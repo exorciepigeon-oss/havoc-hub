@@ -1,6 +1,5 @@
--- HAVOC HUB : Player - Camera Noclip
+-- HAVOC HUB : Player - Camera Noclip (CFrame override, sans toucher CameraSubject)
 local Hub=_G.HavocHub if not Hub then return end
--- Not persisted (movement toggle): stays off across reloads
 Hub.UnsafeKeys.CAM_NOCLIP=true
 
 task.spawn(function()
@@ -14,7 +13,7 @@ task.spawn(function()
     UI.KeyBind(cP,LX+4,44,COLW-8,"Toggle Key","CAM_NOCLIP_KEY","V",function(state) Hub.Set("CAM_NOCLIP",state) end,"Toggle")
     UI.Stepper(cP,LX+4,78,COLW-8,"Cam Speed","CAM_NOCLIP_SPEED",50,5,5,200)
 
-    local fakePart=nil local savedSubject=nil local savedType=nil local controls=nil
+    local noclipPos=nil local controls=nil
     local function getControls()
         if controls then return controls end
         local ok,mod=pcall(function()
@@ -25,57 +24,48 @@ task.spawn(function()
         return controls
     end
     local function enableNoclip()
-        if fakePart then return end
+        if noclipPos then return end
+        noclipPos=cam.CFrame.Position
         local c=getControls() if c then pcall(function() c:Disable() end) end
-        savedSubject=cam.CameraSubject
-        savedType=cam.CameraType
-        fakePart=Instance.new("Part")
-        fakePart.Anchored=true fakePart.CanCollide=false fakePart.Transparency=1
-        fakePart.Size=Vector3.new(1,1,1) fakePart.CFrame=CFrame.new(cam.CFrame.Position)
-        fakePart.Name="HavocHub_NoclipAnchor" fakePart.Parent=workspace
-        cam.CameraSubject=fakePart
     end
     local function disableNoclip()
-        if not fakePart then return end
-        -- Re-enable controls d'abord (rend le PlayerModule opérationnel)
+        if not noclipPos then return end
+        noclipPos=nil
         local c=getControls() if c then pcall(function() c:Enable() end) end
-        -- Restore CameraSubject: use savedSubject si toujours valide (parent existe), sinon Humanoid
-        local subj=savedSubject
-        if not subj or not subj.Parent then
-            local char=lp.Character
-            subj=char and char:FindFirstChildOfClass("Humanoid")
-        end
-        if subj then cam.CameraSubject=subj end
-        cam.CameraType=savedType or Enum.CameraType.Custom
-        savedSubject=nil savedType=nil
-        pcall(function() fakePart:Destroy() end) fakePart=nil
-        -- Laisse Havoc reprendre le contrôle de la cam sans forcer de CFrame
+        -- Rien à toucher côté cam: Havoc reprend la main dès que on n'override plus
     end
 
-    -- Sync state each frame + move fakePart via WASD/Space/Shift
-    RunS.RenderStepped:Connect(function(dt)
-        if Hub.G.HAVOC_STOP then if fakePart then disableNoclip() end return end
+    -- Sync state
+    RunS.Heartbeat:Connect(function()
+        if Hub.G.HAVOC_STOP then if noclipPos then disableNoclip() end return end
         local want=Hub.Get("CAM_NOCLIP",false)
-        if want and not fakePart then enableNoclip()
-        elseif not want and fakePart then disableNoclip() end
-        if fakePart then
-            local mv=Vector3.zero
-            local look=cam.CFrame.LookVector local right=cam.CFrame.RightVector
-            if UIS:IsKeyDown(Enum.KeyCode.W) then mv=mv+look end
-            if UIS:IsKeyDown(Enum.KeyCode.S) then mv=mv-look end
-            if UIS:IsKeyDown(Enum.KeyCode.A) then mv=mv-right end
-            if UIS:IsKeyDown(Enum.KeyCode.D) then mv=mv+right end
-            if UIS:IsKeyDown(Enum.KeyCode.Space) then mv=mv+Vector3.new(0,1,0) end
-            if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then mv=mv-Vector3.new(0,1,0) end
-            if mv.Magnitude>0.01 then
-                local sp=Hub.Get("CAM_NOCLIP_SPEED",50)
-                fakePart.CFrame=fakePart.CFrame+mv.Unit*sp*dt
-            end
-        end
+        if want and not noclipPos then enableNoclip()
+        elseif not want and noclipPos then disableNoclip() end
     end)
 
-    -- Note: KeyBind Callback handles press events (mode-aware: Toggle/Hold/Always via right-click on picker)
-    Hub.On("shutdown",function() disableNoclip() end)
+    -- Override CFrame APRÈS le camera controller de Havoc (Camera=200 → nous=201)
+    RunS:BindToRenderStep("HavocNoclipCam",Enum.RenderPriority.Camera.Value+1,function(dt)
+        if not noclipPos or Hub.G.HAVOC_STOP then return end
+        local mv=Vector3.zero
+        local look=cam.CFrame.LookVector local right=cam.CFrame.RightVector
+        if UIS:IsKeyDown(Enum.KeyCode.W) then mv=mv+look end
+        if UIS:IsKeyDown(Enum.KeyCode.S) then mv=mv-look end
+        if UIS:IsKeyDown(Enum.KeyCode.A) then mv=mv-right end
+        if UIS:IsKeyDown(Enum.KeyCode.D) then mv=mv+right end
+        if UIS:IsKeyDown(Enum.KeyCode.Space) then mv=mv+Vector3.new(0,1,0) end
+        if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then mv=mv-Vector3.new(0,1,0) end
+        if mv.Magnitude>0.01 then
+            local sp=Hub.Get("CAM_NOCLIP_SPEED",50)
+            noclipPos=noclipPos+mv.Unit*sp*dt
+        end
+        -- Overwrite cam position, preserve rotation set par Havoc controller
+        cam.CFrame=cam.CFrame-cam.CFrame.Position+noclipPos
+    end)
+
+    Hub.On("shutdown",function()
+        disableNoclip()
+        pcall(function() RunS:UnbindFromRenderStep("HavocNoclipCam") end)
+    end)
     Hub.RegisterModule("player",{Start=function() end})
-    print("[Hub Player] loaded (Cam Noclip)")
+    print("[Hub Player] loaded (Cam Noclip via CFrame override)")
 end)
