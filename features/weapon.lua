@@ -116,13 +116,14 @@ task.spawn(function()
                     local len=(endPt-a2).Magnitude
                     if len<0.5 then return end
 
-                    -- Anchor part invisible + 2 Attachments
+                    -- Anchor part invisible + 2 Attachments (Parent AVANT set Position)
                     local anchor=Instance.new("Part")
                     anchor.Anchored=true anchor.CanCollide=false anchor.CanQuery=false anchor.CanTouch=false
                     anchor.Transparency=1 anchor.Size=Vector3.new(0.1,0.1,0.1)
-                    anchor.CFrame=CFrame.new(a2)
-                    local att0=Instance.new("Attachment") att0.WorldPosition=a2 att0.Parent=anchor
-                    local att1=Instance.new("Attachment") att1.WorldPosition=endPt att1.Parent=anchor
+                    anchor.CFrame=CFrame.new(a2) -- identity rotation, position=a2
+                    anchor.Parent=workspace
+                    local att0=Instance.new("Attachment") att0.Parent=anchor att0.Position=Vector3.zero
+                    local att1=Instance.new("Attachment") att1.Parent=anchor att1.Position=endPt-a2
 
                     local beam=Instance.new("Beam")
                     beam.Attachment0=att0 beam.Attachment1=att1
@@ -163,8 +164,7 @@ task.spawn(function()
                         beam.LightEmission=0.5 beam.Color=ColorSequence.new(col)
                         beam.Transparency=NumberSequence.new(0.6)
                     else beam.LightEmission=1 beam.Color=ColorSequence.new(col) end
-                    beam.Parent=anchor
-                    anchor.Parent=workspace
+                    beam.Enabled=true beam.Parent=anchor
 
                     -- Fade manuel (Transparency = NumberSequence, non-tweenable direct)
                     local dur=Hub.Get("TRACER_DUR",500)/1000
