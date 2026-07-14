@@ -1,4 +1,4 @@
--- HAVOC HUB : ESP v5 (bind post-Last + occlusion split + bbox)
+-- HAVOC HUB : ESP v6 (native 3D adornments - zero projection, sync render pipeline)
 local Hub=_G.HavocHub if not Hub then return end
 task.spawn(function()
     while not Hub.UI or not Hub.UI.AddTab do task.wait(0.05) end
@@ -8,80 +8,108 @@ task.spawn(function()
     local B15={{"Head","UpperTorso"},{"UpperTorso","LowerTorso"},{"UpperTorso","LeftUpperArm"},{"LeftUpperArm","LeftLowerArm"},{"LeftLowerArm","LeftHand"},{"UpperTorso","RightUpperArm"},{"RightUpperArm","RightLowerArm"},{"RightLowerArm","RightHand"},{"LowerTorso","LeftUpperLeg"},{"LeftUpperLeg","LeftLowerLeg"},{"LeftLowerLeg","LeftFoot"},{"LowerTorso","RightUpperLeg"},{"RightUpperLeg","RightLowerLeg"},{"RightLowerLeg","RightFoot"}}
     local function bones(m) return m:FindFirstChild("UpperTorso") and B15 or B6 end
 
-    -- Native ScreenGui box + skeleton (sync render pipeline; Drawing lib lag fix)
-    pcall(function() local old=game:GetService("CoreGui"):FindFirstChild("HavocHub_ESPNative") if old then old:Destroy() end end)
-    local espGui=Hub.mk("ScreenGui",{Name="HavocHub_ESPNative",ResetOnSpawn=false,IgnoreGuiInset=true,DisplayOrder=1e5},game:GetService("CoreGui"))
-    local E,hlsV,hlsO={},{},{}
-    local function newL() local f=Instance.new("Frame") f.AnchorPoint=Vector2.new(0.5,0.5) f.BorderSizePixel=0 f.Visible=false f.Parent=espGui return f end
-    local function newBox() local f=Instance.new("Frame") f.BackgroundTransparency=1 f.BorderSizePixel=0 f.Visible=false f.Parent=espGui
-        local s=Instance.new("UIStroke") s.Thickness=1 s.Parent=f return f,s end
-    local function newT(sz) local t=Drawing.new("Text") t.Size=sz or 13 t.Center=true t.Outline=true t.Transparency=1 t.Visible=false return t end
-    local function newS(f) local s=Drawing.new("Square") s.Filled=f s.Thickness=1 s.Transparency=1 s.Visible=false return s end
-    local function ensure(m) if not E[m] then
-        local box,boxStroke=newBox()
-        E[m]={box=box,boxStroke=boxStroke,lines={},hpbg=newS(true),hpfill=newS(true),name=newT(13),weapon=newT(11)}
-        E[m].hpbg.Color=Color3.new(0,0,0)
-        for i=1,14 do E[m].lines[i]=newL() end
-    end return E[m] end
-    local function hide(m) if E[m] then local e=E[m] e.box.Visible=false e.hpbg.Visible=false e.hpfill.Visible=false e.name.Visible=false e.weapon.Visible=false for _,l in ipairs(e.lines) do l.Visible=false end end end
-    -- Per-limb chams: liste des parts a highlighter (evite les hitboxes/parts fantomes du model)
-    local LIMBS_R15={"Head","UpperTorso","LowerTorso","LeftUpperArm","LeftLowerArm","LeftHand","RightUpperArm","RightLowerArm","RightHand","LeftUpperLeg","LeftLowerLeg","LeftFoot","RightUpperLeg","RightLowerLeg","RightFoot"}
-    local LIMBS_R6={"Head","Torso","Left Arm","Right Arm","Left Leg","Right Leg"}
-    local function limbParts(m)
-        local names=m:FindFirstChild("UpperTorso") and LIMBS_R15 or LIMBS_R6
-        local out={}
-        for _,n in ipairs(names) do local p=m:FindFirstChild(n) if p and p:IsA("BasePart") then table.insert(out,p) end end
-        return out
+    -- Nuke previous adornment container on reload
+    pcall(function() local old=game:GetService("CoreGui"):FindFirstChild("HavocHub_ESPAdorn") if old then old:Destroy() end end)
+    local adornRoot=Instance.new("Folder") adornRoot.Name="HavocHub_ESPAdorn" adornRoot.Parent=game:GetService("CoreGui")
+
+    local E,hl,hlOcc={},{},{}
+
+    local function mkBoxBB(m,hrp)
+        local bb=Instance.new("BillboardGui")
+        bb.Adornee=hrp bb.AlwaysOnTop=true bb.Size=UDim2.fromScale(5,6.5)
+        bb.LightInfluence=0 bb.MaxDistance=math.huge bb.ClipsDescendants=false
+        bb.Parent=adornRoot
+        local f=Instance.new("Frame") f.Size=UDim2.fromScale(1,1) f.BackgroundTransparency=1 f.BorderSizePixel=0 f.Parent=bb
+        local s=Instance.new("UIStroke") s.Thickness=1 s.Color=Color3.new(1,1,1) s.Parent=f
+        return bb,s
     end
-    local function killHL(m)
-        if hlsV[m] then for _,h in ipairs(hlsV[m]) do pcall(function() h:Destroy() end) end hlsV[m]=nil end
-        if hlsO[m] then for _,h in ipairs(hlsO[m]) do pcall(function() h:Destroy() end) end hlsO[m]=nil end
+
+    local function mkNameBB(m,hrp)
+        local bb=Instance.new("BillboardGui")
+        bb.Adornee=hrp bb.AlwaysOnTop=true
+        -- Pixel size = taille écran constante
+        bb.Size=UDim2.fromOffset(220,44)
+        bb.StudsOffset=Vector3.new(0,4,0)
+        bb.LightInfluence=0 bb.MaxDistance=math.huge
+        bb.Parent=adornRoot
+        local name=Instance.new("TextLabel") name.Size=UDim2.new(1,0,0.55,0) name.BackgroundTransparency=1
+        name.Font=Enum.Font.GothamBold name.TextSize=13 name.TextColor3=Color3.new(1,1,1)
+        name.TextStrokeTransparency=0 name.Text="" name.Parent=bb
+        local weap=Instance.new("TextLabel") weap.Size=UDim2.new(1,0,0.45,0) weap.Position=UDim2.new(0,0,0.55,0)
+        weap.BackgroundTransparency=1 weap.Font=Enum.Font.Gotham weap.TextSize=11 weap.TextColor3=Color3.new(1,1,1)
+        weap.TextStrokeTransparency=0.3 weap.Text="" weap.Parent=bb
+        return bb,name,weap
     end
-    local function rem(m) if E[m] then local e=E[m] pcall(function() e.box:Destroy() e.hpbg:Remove() e.hpfill:Remove() e.name:Remove() e.weapon:Remove() for _,l in ipairs(e.lines) do l:Destroy() end end) E[m]=nil end
-        killHL(m) end
-    -- Per-limb chams: 1 Highlight par part (skip parts fantomes du model)
-    local function eHL(m,visCol,visAlpha,occOn,occCol,occAlpha)
-        local parts=limbParts(m)
-        hlsV[m]=hlsV[m] or {}
-        for i,p in ipairs(parts) do
-            local h=hlsV[m][i]
-            if not h or not h.Parent then
-                h=Instance.new("Highlight") h.FillColor=visCol h.FillTransparency=1-visAlpha
-                h.OutlineTransparency=1 h.DepthMode=Enum.HighlightDepthMode.AlwaysOnTop h.Adornee=p h.Parent=p
-                hlsV[m][i]=h
-            else h.FillColor=visCol h.FillTransparency=1-visAlpha if h.Adornee~=p then h.Adornee=p h.Parent=p end end
+
+    local function mkHpBB(m,hrp)
+        local bb=Instance.new("BillboardGui")
+        bb.Adornee=hrp bb.AlwaysOnTop=true bb.Size=UDim2.fromScale(0.25,6)
+        bb.StudsOffset=Vector3.new(-3,0,0)
+        bb.LightInfluence=0 bb.MaxDistance=math.huge
+        bb.Parent=adornRoot
+        local bg=Instance.new("Frame") bg.Size=UDim2.fromScale(1,1) bg.BackgroundColor3=Color3.new(0,0,0) bg.BorderSizePixel=0
+        bg.BackgroundTransparency=0.4 bg.Parent=bb
+        local fill=Instance.new("Frame") fill.AnchorPoint=Vector2.new(0,1) fill.Position=UDim2.fromScale(0,1)
+        fill.Size=UDim2.fromScale(1,1) fill.BorderSizePixel=0 fill.BackgroundColor3=Color3.new(0,1,0) fill.Parent=bg
+        return bb,bg,fill
+    end
+
+    local function mkLine(anchorPart)
+        local ln=Instance.new("LineHandleAdornment")
+        ln.AlwaysOnTop=true ln.ZIndex=1 ln.Thickness=2
+        ln.Color3=Color3.new(1,1,1) ln.Transparency=0
+        ln.Adornee=anchorPart ln.Parent=adornRoot
+        return ln
+    end
+
+    local function ensure(m,hrp)
+        if not E[m] then
+            local boxBB,boxStroke=mkBoxBB(m,hrp)
+            local nameBB,nameLbl,weapLbl=mkNameBB(m,hrp)
+            local hpBB,hpBg,hpFill=mkHpBB(m,hrp)
+            E[m]={boxBB=boxBB,boxStroke=boxStroke,nameBB=nameBB,nameLbl=nameLbl,weapLbl=weapLbl,hpBB=hpBB,hpBg=hpBg,hpFill=hpFill,lines={}}
         end
-        for i=#parts+1,#hlsV[m] do if hlsV[m][i] then pcall(function() hlsV[m][i]:Destroy() end) hlsV[m][i]=nil end end
-        if occOn then
-            hlsO[m]=hlsO[m] or {}
-            for i,p in ipairs(parts) do
-                local h=hlsO[m][i]
-                if not h or not h.Parent then
-                    h=Instance.new("Highlight") h.FillColor=occCol h.FillTransparency=1-occAlpha
-                    h.OutlineTransparency=1 h.DepthMode=Enum.HighlightDepthMode.Occluded h.Adornee=p h.Parent=p
-                    hlsO[m][i]=h
-                else h.FillColor=occCol h.FillTransparency=1-occAlpha if h.Adornee~=p then h.Adornee=p h.Parent=p end end
-            end
-            for i=#parts+1,#hlsO[m] do if hlsO[m][i] then pcall(function() hlsO[m][i]:Destroy() end) hlsO[m][i]=nil end end
-        elseif hlsO[m] then for _,h in ipairs(hlsO[m]) do pcall(function() h:Destroy() end) end hlsO[m]=nil end
+        return E[m]
     end
-    local kHL=killHL
+
+    local function killHL(m) if hl[m] then pcall(function() hl[m]:Destroy() end) hl[m]=nil end end
+    -- Single Highlight sur modèle entier (comme user veut, chams marche bien)
+    local function eHL(m,visCol,visAlpha,occOn,occCol,occAlpha)
+        if not hl[m] or not hl[m].Parent then
+            hl[m]=Instance.new("Highlight")
+            hl[m].DepthMode=Enum.HighlightDepthMode.AlwaysOnTop
+            hl[m].OutlineTransparency=1
+            hl[m].Adornee=m hl[m].Parent=m
+        end
+        hl[m].FillColor=visCol hl[m].FillTransparency=1-visAlpha
+        -- Occlusion split via 2e highlight
+        if occOn then
+            if not hlOcc[m] or not hlOcc[m].Parent then
+                local h=Instance.new("Highlight")
+                h.DepthMode=Enum.HighlightDepthMode.Occluded
+                h.OutlineTransparency=1 h.Adornee=m h.Parent=m
+                hlOcc[m]=h
+            end
+            hlOcc[m].FillColor=occCol hlOcc[m].FillTransparency=1-occAlpha
+        elseif hlOcc[m] then pcall(function() hlOcc[m]:Destroy() end) hlOcc[m]=nil end
+    end
+    local kHL=function(m) killHL(m) if hlOcc[m] then pcall(function() hlOcc[m]:Destroy() end) hlOcc[m]=nil end end
+
+    local function hide(e) e.boxBB.Enabled=false e.nameBB.Enabled=false e.hpBB.Enabled=false
+        for _,ln in ipairs(e.lines) do ln.Visible=false end end
+
+    local function rem(m) if E[m] then local e=E[m]
+        pcall(function()
+            e.boxBB:Destroy() e.nameBB:Destroy() e.hpBB:Destroy()
+            for _,ln in ipairs(e.lines) do ln:Destroy() end
+        end) E[m]=nil end
+        kHL(m) end
+
     local function equipped(m) for _,c in ipairs(m:GetChildren()) do if c:IsA("Tool") then return c end end end
 
-    -- occlusion check: raycast camera -> target
-    local function visible(target,parentModel)
-        local o=cam.CFrame.Position local dir=target-o local dist=dir.Magnitude
-        if dist<0.1 then return true end
-        local rp=RaycastParams.new() rp.FilterType=Enum.RaycastFilterType.Exclude
-        rp.FilterDescendantsInstances={Hub.lp.Character,cam} rp.IgnoreWater=true
-        local res=workspace:Raycast(o,dir,rp)
-        if not res then return true end
-        return res.Instance:IsDescendantOf(parentModel)
-    end
-
+    -- UI
     local cESP=UI.AddTab("esp","ESP")
     local COLW=232 local LX,RX=0,COLW+8
-    -- Rectangles gris autour des sous-categories (Header avec hauteur = groupe)
     UI.Header(cESP,LX,0,COLW,"PLAYER",190)
     UI.ToggleColor(cESP,LX+4,10,COLW-8,"Box","P_BOX",true,"P_BOX_C",Color3.fromRGB(255,50,80),"P_BOX_A",1)
     UI.ToggleColor(cESP,LX+4,44,COLW-8,"Skeleton","P_SKEL",true,"P_SKEL_C",Color3.fromRGB(255,120,140),"P_SKEL_A",1)
@@ -99,24 +127,16 @@ task.spawn(function()
     UI.ToggleColor(cESP,RX+4,210,COLW-8,"NPC Occluded","N_OCC",false,"N_OCC_C",Color3.fromRGB(100,100,100),"N_OCC_A",0.5)
     UI.Stepper(cESP,0,262,COLW*2+8,"Distance","MAX_DIST",3400,100,100,8000)
 
-    -- FIX jitter: manual projection avec GetRenderCFrame (bypass WorldToViewportPoint lag)
+    -- Render loop: only update text/color/enabled. Positions auto-tracked par Roblox via Adornee.
     pcall(function() RunS:UnbindFromRenderStep("HubESP") end)
-    local function project(pos,camCF,vp,halfW,halfH)
-        local rel=camCF:PointToObjectSpace(pos)
-        if rel.Z>=0 then return Vector3.new(0,0,-1) end
-        local ndcX=rel.X/(-rel.Z*halfW) local ndcY=-rel.Y/(-rel.Z*halfH)
-        return Vector3.new((ndcX*0.5+0.5)*vp.X,(ndcY*0.5+0.5)*vp.Y,-rel.Z)
-    end
     RunS:BindToRenderStep("HubESP",Enum.RenderPriority.Last.Value+1,function()
         if Hub.G.HAVOC_STOP then return end
         pcall(function()
             local list=Hub.Enemies() local seen={}
-            local camCF=cam:GetRenderCFrame()
-            local vp=cam.ViewportSize
-            local halfH=math.tan(math.rad(cam.FieldOfView)/2)
-            local halfW=halfH*(vp.X/vp.Y)
             for _,info in pairs(list) do
-                local m,hrp,hd,hum=info.m,info.hrp,info.hd,info.hum seen[m]=true local e=ensure(m)
+                local m,hrp,hd,hum=info.m,info.hrp,info.hd,info.hum seen[m]=true
+                if not hrp or not hd then continue end
+                local e=ensure(m,hrp)
                 local pl=Hub.IsPlayer(m)
                 local T_BOX=Hub.Get(pl and "P_BOX" or "N_BOX",true) local T_SKEL=Hub.Get(pl and "P_SKEL" or "N_SKEL",true)
                 local T_CHAMS=Hub.Get(pl and "P_CHAMS" or "N_CHAMS",true) local T_HP=Hub.Get(pl and "P_HP" or "N_HP",true) local T_NAME=Hub.Get(pl and "P_NAME" or "N_NAME",true)
@@ -128,51 +148,68 @@ task.spawn(function()
                 local C_NAME=Hub.Get(pl and "P_NAME_C" or "N_NAME_C",Color3.new(1,1,1)) local A_NAME=Hub.Get(pl and "P_NAME_A" or "N_NAME_A",1)
                 local C_OCC=Hub.Get(pl and "P_OCC_C" or "N_OCC_C",Color3.fromRGB(100,100,100))
                 local A_OCC=Hub.Get(pl and "P_OCC_A" or "N_OCC_A",0.5)
+
                 if T_CHAMS then eHL(m,C_CHAMS,A_CHAMS,OCC_ON,C_OCC,A_OCC) else kHL(m) end
-                -- POSITIONS: part.Position (render-synced) au lieu de CFrame.Position
-                local hdPos=hd.Position local hrpPos=hrp.Position
-                local Tp=project(hdPos+Vector3.new(0,1,0),camCF,vp,halfW,halfH)
-                local Bp=project(hrpPos-Vector3.new(0,3,0),camCF,vp,halfW,halfH)
-                if Tp.Z>0 and Bp.Z>0 then
-                    local ht=math.abs(Bp.Y-Tp.Y) local w=ht*0.5 local cx=(Tp.X+Bp.X)/2 local topY=math.min(Tp.Y,Bp.Y)
-                    if T_BOX then
-                        e.box.Position=UDim2.fromOffset(cx-w/2,topY) e.box.Size=UDim2.fromOffset(w,ht)
-                        e.boxStroke.Color=C_BOX e.boxStroke.Transparency=1-A_BOX e.box.Visible=true
-                    else e.box.Visible=false end
-                    if T_NAME then
-                        local line=m.Name.."  ["..math.floor(info.dist).."m]" if T_HP then line=line.."  "..math.floor(hum.Health).."hp" end
-                        e.name.Text=line e.name.Position=Vector2.new(cx,topY-30) e.name.Color=C_NAME e.name.Transparency=A_NAME e.name.Visible=true
-                        local tl=equipped(m) if tl then e.weapon.Text=tl.Name e.weapon.Position=Vector2.new(cx,topY-16) e.weapon.Color=C_NAME e.weapon.Transparency=A_NAME e.weapon.Visible=true else e.weapon.Visible=false end
-                    else e.name.Visible=false e.weapon.Visible=false end
-                    if T_HP then local f=math.clamp(hum.Health/math.max(hum.MaxHealth,1),0,1) local x=cx-w/2-6
-                        e.hpbg.Position=Vector2.new(x-1,topY-1) e.hpbg.Size=Vector2.new(5,ht+2) e.hpbg.Transparency=A_HP e.hpbg.Visible=true
-                        local fh=ht*f e.hpfill.Position=Vector2.new(x,topY+(ht-fh)) e.hpfill.Size=Vector2.new(3,fh)
-                        e.hpfill.Color=C_HP:Lerp(Hub.Theme.HP_LOW,1-f) e.hpfill.Transparency=A_HP e.hpfill.Visible=true
-                    else e.hpbg.Visible=false e.hpfill.Visible=false end
-                else hide(m) end
-                if T_SKEL then local bn=bones(m)
-                    for i,b in ipairs(bn) do local a=m:FindFirstChild(b[1]) local d=m:FindFirstChild(b[2]) local ln=e.lines[i]
-                        if ln and a and d then
-                            local aP=a.Position local dP=d.Position
-                            local A=project(aP,camCF,vp,halfW,halfH) local D=project(dP,camCF,vp,halfW,halfH)
-                            if A.Z>0 and D.Z>0 then
-                                local dx=D.X-A.X local dy=D.Y-A.Y
-                                local len=math.sqrt(dx*dx+dy*dy)
-                                ln.Position=UDim2.fromOffset((A.X+D.X)/2,(A.Y+D.Y)/2)
-                                ln.Size=UDim2.fromOffset(len,1)
-                                ln.Rotation=math.deg(math.atan2(dy,dx))
-                                ln.BackgroundColor3=C_SKEL ln.BackgroundTransparency=1-A_SKEL ln.Visible=true
+
+                -- Box
+                if T_BOX then
+                    e.boxBB.Enabled=true e.boxStroke.Color=C_BOX e.boxStroke.Transparency=1-A_BOX
+                else e.boxBB.Enabled=false end
+
+                -- Name + Weapon
+                if T_NAME then
+                    e.nameBB.Enabled=true
+                    local line=m.Name.."  ["..math.floor(info.dist).."m]" if T_HP then line=line.."  "..math.floor(hum.Health).."hp" end
+                    e.nameLbl.Text=line e.nameLbl.TextColor3=C_NAME e.nameLbl.TextTransparency=1-A_NAME
+                    local tl=equipped(m)
+                    if tl then e.weapLbl.Text=tl.Name e.weapLbl.TextColor3=C_NAME e.weapLbl.TextTransparency=1-A_NAME e.weapLbl.Visible=true
+                    else e.weapLbl.Visible=false end
+                else e.nameBB.Enabled=false end
+
+                -- HP bar
+                if T_HP then
+                    e.hpBB.Enabled=true
+                    local f=math.clamp(hum.Health/math.max(hum.MaxHealth,1),0,1)
+                    e.hpFill.Size=UDim2.fromScale(1,f)
+                    e.hpFill.BackgroundColor3=C_HP:Lerp(Hub.Theme.HP_LOW,1-f)
+                    e.hpFill.BackgroundTransparency=1-A_HP
+                    e.hpBg.BackgroundTransparency=math.max(0.4,1-A_HP)
+                else e.hpBB.Enabled=false end
+
+                -- Skeleton via LineHandleAdornment natif (adornee=hrp, CFrame local)
+                if T_SKEL then
+                    local bn=bones(m)
+                    local hrpCF=hrp.CFrame
+                    for i,b in ipairs(bn) do
+                        local a=m:FindFirstChild(b[1]) local d=m:FindFirstChild(b[2])
+                        local ln=e.lines[i]
+                        if a and d then
+                            if not ln or not ln.Parent then ln=mkLine(hrp) e.lines[i]=ln end
+                            if ln.Adornee~=hrp then ln.Adornee=hrp end
+                            local aP,dP=a.Position,d.Position
+                            local len=(dP-aP).Magnitude
+                            if len>0.01 then
+                                -- World CFrame lookAt(A->D), converted to hrp local space
+                                ln.CFrame=hrpCF:ToObjectSpace(CFrame.lookAt(aP,dP))
+                                ln.Length=len
+                                ln.Color3=C_SKEL ln.Transparency=1-A_SKEL ln.Visible=true
                             else ln.Visible=false end
-                        elseif ln then ln.Visible=false end end
+                        elseif ln then ln.Visible=false end
+                    end
                     for i=#bn+1,14 do if e.lines[i] then e.lines[i].Visible=false end end
-                else for _,ln in ipairs(e.lines) do ln.Visible=false end end
+                else for _,ln in ipairs(e.lines) do if ln then ln.Visible=false end end end
             end
-            for m in pairs(E) do if not seen[m] then hide(m) if not m.Parent then rem(m) end end end
+            -- Cleanup absent enemies
+            for m,e in pairs(E) do if not seen[m] then hide(e) if not m.Parent then rem(m) end end end
         end)
     end)
 
-    Hub.On("shutdown",function() for m in pairs(E) do rem(m) end pcall(function() RunS:UnbindFromRenderStep("HubESP") end) pcall(function() espGui:Destroy() end) end)
+    Hub.On("shutdown",function()
+        for m in pairs(E) do rem(m) end
+        pcall(function() RunS:UnbindFromRenderStep("HubESP") end)
+        pcall(function() adornRoot:Destroy() end)
+    end)
     UI.ShowTab("esp")
     Hub.RegisterModule("esp",{Start=function() end})
-    print("[Hub ESP v5] loaded")
+    print("[Hub ESP v6] loaded (native 3D adornments)")
 end)
