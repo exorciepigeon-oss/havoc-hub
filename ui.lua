@@ -169,8 +169,13 @@ function UI.Dropdown(par,x,y,w,label,getVal,setVal,values)
     if type(getVal)=="string" then local k=getVal local d=setVal
         getVal=function() return Hub.Get(k,d) end setVal=function(v) Hub.Set(k,v) end
     end
-    g:AddDropdown(nid(),{Text=label,Values=values or {},Default=getVal() or (values and values[1]) or "",AllowNull=false,
-        Callback=function(v) setVal(v) end})
+    local cur=getVal() or (values and values[1]) or ""
+    g:AddDropdown(nid(),{Text=label,Values=values or {},Default=cur,Multi=false,AllowNull=false,
+        Callback=function(v)
+            -- Obsidian peut retourner string OU table selon version
+            if type(v)=="table" then for k,_ in pairs(v) do v=k break end end
+            if type(v)=="string" then setVal(v) print("[UI] Dropdown "..label.." set to "..v) end
+        end})
 end
 
 -- Config tab (delayed so features register first)

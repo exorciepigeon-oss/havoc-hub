@@ -133,6 +133,7 @@ task.spawn(function()
 
                     local col=Hub.Get("TRACER_C",Color3.fromRGB(255,80,255))
                     local fx=Hub.Get("TRACER_FX","Neon")
+                    print("[tracer] fx="..tostring(fx).." len="..tostring(len))
                     -- Preset par effet
                     if fx=="Neon" then
                         beam.LightEmission=1 beam.Color=ColorSequence.new(col)
