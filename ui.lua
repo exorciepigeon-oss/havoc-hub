@@ -184,6 +184,11 @@ function UI.Group(par,x,y,w,h,title)
 end
 
 function UI.Row(par,x,y,w,label,gT,sT,gC,sC,gA,sA)
+    -- String-key detection: gT="KEY", sT=default -> auto Hub.Get/Set
+    if type(gT)=="string" then local key=gT local default=sT
+        gT=function() return Hub.Get(key,default) end
+        sT=function(v) Hub.Set(key,v) end
+    end
     local r=mk("Frame",{Size=UDim2.new(0,w,0,24),Position=UDim2.new(0,x+8,0,y+8),BackgroundTransparency=1},par)
     -- checkbox with neon glow when active
     local box=mk("TextButton",{Size=UDim2.new(0,14,0,14),Position=UDim2.new(0,4,0.5,-7),BackgroundColor3=T.BG3,BorderSizePixel=0,Text="",AutoButtonColor=false},r)

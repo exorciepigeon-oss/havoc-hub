@@ -8,15 +8,25 @@ task.spawn(function()
     local B15={{"Head","UpperTorso"},{"UpperTorso","LowerTorso"},{"UpperTorso","LeftUpperArm"},{"LeftUpperArm","LeftLowerArm"},{"LeftLowerArm","LeftHand"},{"UpperTorso","RightUpperArm"},{"RightUpperArm","RightLowerArm"},{"RightLowerArm","RightHand"},{"LowerTorso","LeftUpperLeg"},{"LeftUpperLeg","LeftLowerLeg"},{"LeftLowerLeg","LeftFoot"},{"LowerTorso","RightUpperLeg"},{"RightUpperLeg","RightLowerLeg"},{"RightLowerLeg","RightFoot"}}
     local function bones(m) return m:FindFirstChild("UpperTorso") and B15 or B6 end
 
+    -- Native ScreenGui box + skeleton (sync render pipeline; Drawing lib lag fix)
+    pcall(function() local old=game:GetService("CoreGui"):FindFirstChild("HavocHub_ESPNative") if old then old:Destroy() end end)
+    local espGui=Hub.mk("ScreenGui",{Name="HavocHub_ESPNative",ResetOnSpawn=false,IgnoreGuiInset=true,DisplayOrder=1e5},game:GetService("CoreGui"))
     local E,hlsV,hlsO={},{},{}
-    local function newL() local l=Drawing.new("Line") l.Thickness=1 l.Transparency=1 l.Visible=false return l end
-    local function newS(f) local s=Drawing.new("Square") s.Filled=f s.Thickness=1 s.Transparency=1 s.Visible=false return s end
+    local function newL() local f=Instance.new("Frame") f.AnchorPoint=Vector2.new(0.5,0.5) f.BorderSizePixel=0 f.Visible=false f.Parent=espGui return f end
+    local function newBox() local f=Instance.new("Frame") f.BackgroundTransparency=1 f.BorderSizePixel=0 f.Visible=false f.Parent=espGui
+        local s=Instance.new("UIStroke") s.Thickness=1 s.Parent=f return f,s end
     local function newT(sz) local t=Drawing.new("Text") t.Size=sz or 13 t.Center=true t.Outline=true t.Transparency=1 t.Visible=false return t end
-    local function ensure(m) if not E[m] then E[m]={box=newS(false),lines={},hpbg=newS(true),hpfill=newS(true),name=newT(13),weapon=newT(11)} E[m].hpbg.Color=Color3.new(0,0,0) for i=1,14 do E[m].lines[i]=newL() end end return E[m] end
+    local function newS(f) local s=Drawing.new("Square") s.Filled=f s.Thickness=1 s.Transparency=1 s.Visible=false return s end
+    local function ensure(m) if not E[m] then
+        local box,boxStroke=newBox()
+        E[m]={box=box,boxStroke=boxStroke,lines={},hpbg=newS(true),hpfill=newS(true),name=newT(13),weapon=newT(11)}
+        E[m].hpbg.Color=Color3.new(0,0,0)
+        for i=1,14 do E[m].lines[i]=newL() end
+    end return E[m] end
     local function hide(m) if E[m] then local e=E[m] e.box.Visible=false e.hpbg.Visible=false e.hpfill.Visible=false e.name.Visible=false e.weapon.Visible=false for _,l in ipairs(e.lines) do l.Visible=false end end end
     local function killHL(m) if hlsV[m] then pcall(function() hlsV[m]:Destroy() end) hlsV[m]=nil end
         if hlsO[m] then pcall(function() hlsO[m]:Destroy() end) hlsO[m]=nil end end
-    local function rem(m) if E[m] then local e=E[m] pcall(function() e.box:Remove() e.hpbg:Remove() e.hpfill:Remove() e.name:Remove() e.weapon:Remove() for _,l in ipairs(e.lines) do l:Remove() end end) E[m]=nil end
+    local function rem(m) if E[m] then local e=E[m] pcall(function() e.box:Destroy() e.hpbg:Remove() e.hpfill:Remove() e.name:Remove() e.weapon:Remove() for _,l in ipairs(e.lines) do l:Destroy() end end) E[m]=nil end
         killHL(m) end
     -- Double Highlight = split occlusion: AlwaysOnTop paint tout en visCol, Occluded overwrite portion cachee en occCol
     local function eHL(m,visCol,visAlpha,occOn,occCol,occAlpha)
@@ -100,7 +110,8 @@ task.spawn(function()
                 if Tp.Z>0 and Bp.Z>0 then
                     local ht=math.abs(Bp.Y-Tp.Y) local w=ht*0.5 local cx=(Tp.X+Bp.X)/2 local topY=math.min(Tp.Y,Bp.Y)
                     if T_BOX then
-                        e.box.Position=Vector2.new(cx-w/2,topY) e.box.Size=Vector2.new(w,ht) e.box.Color=C_BOX e.box.Transparency=A_BOX e.box.Visible=true
+                        e.box.Position=UDim2.fromOffset(cx-w/2,topY) e.box.Size=UDim2.fromOffset(w,ht)
+                        e.boxStroke.Color=C_BOX e.boxStroke.Transparency=1-A_BOX e.box.Visible=true
                     else e.box.Visible=false end
                     if T_NAME then
                         local line=m.Name.."  ["..math.floor(info.dist).."m]" if T_HP then line=line.."  "..math.floor(hum.Health).."hp" end
@@ -119,8 +130,12 @@ task.spawn(function()
                             local aP=a.Position local dP=d.Position
                             local A=project(aP,camCF,vp,halfW,halfH) local D=project(dP,camCF,vp,halfW,halfH)
                             if A.Z>0 and D.Z>0 then
-                                ln.From=Vector2.new(A.X,A.Y) ln.To=Vector2.new(D.X,D.Y)
-                                ln.Color=C_SKEL ln.Transparency=A_SKEL ln.Visible=true
+                                local dx=D.X-A.X local dy=D.Y-A.Y
+                                local len=math.sqrt(dx*dx+dy*dy)
+                                ln.Position=UDim2.fromOffset((A.X+D.X)/2,(A.Y+D.Y)/2)
+                                ln.Size=UDim2.fromOffset(len,1)
+                                ln.Rotation=math.deg(math.atan2(dy,dx))
+                                ln.BackgroundColor3=C_SKEL ln.BackgroundTransparency=1-A_SKEL ln.Visible=true
                             else ln.Visible=false end
                         elseif ln then ln.Visible=false end end
                     for i=#bn+1,14 do if e.lines[i] then e.lines[i].Visible=false end end
@@ -130,7 +145,7 @@ task.spawn(function()
         end)
     end)
 
-    Hub.On("shutdown",function() for m in pairs(E) do rem(m) end pcall(function() RunS:UnbindFromRenderStep("HubESP") end) end)
+    Hub.On("shutdown",function() for m in pairs(E) do rem(m) end pcall(function() RunS:UnbindFromRenderStep("HubESP") end) pcall(function() espGui:Destroy() end) end)
     UI.ShowTab("esp")
     Hub.RegisterModule("esp",{Start=function() end})
     print("[Hub ESP v5] loaded")
