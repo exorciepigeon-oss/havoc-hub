@@ -30,14 +30,59 @@ task.spawn(function()
     end
 
     local COLW=232 local LX,RX=0,COLW+8
-    UI.Header(cW,0,130,COLW*2+8,"World FX",90)
+    UI.Header(cW,0,130,COLW*2+8,"World FX",128)
     UI.Row(cW,LX+4,140,COLW-8,"Full Bright",function() return Hub.Get("FULLBRIGHT",false) end,function(v) Hub.Set("FULLBRIGHT",v) applyWorld() end)
     UI.Row(cW,RX+4,140,COLW-8,"World Color",function() return true end,function() end,function() return Hub.Get("WORLD_C",Color3.fromRGB(255,255,255)) end,function(c) Hub.Set("WORLD_C",c) applyWorld() end)
-    UI.Step(cW,0,174,COLW*2+8,"Time",function() return Hub.Get("TIME",14) end,function(v) Hub.Set("TIME",v) applyWorld() end,1,0,24)
+    UI.Row(cW,LX+4,174,COLW-8,"No Fog","NO_FOG",false)
+    UI.Row(cW,RX+4,174,COLW-8,"No Grass","NO_GRASS",false)
+    UI.Step(cW,0,208,COLW*2+8,"Time",function() return Hub.Get("TIME",14) end,function(v) Hub.Set("TIME",v) applyWorld() end,1,0,24)
+
+    -- No Fog: 3-hook enforcement (property signal + polling)
+    local savedFogStart,savedFogEnd,savedFogColor=nil,nil,nil
+    local applyingFog=false
+    local function applyFog()
+        if applyingFog or Hub.G.HAVOC_STOP then return end
+        applyingFog=true
+        if Hub.Get("NO_FOG",false) then
+            if not savedFogStart then savedFogStart=Lighting.FogStart savedFogEnd=Lighting.FogEnd savedFogColor=Lighting.FogColor end
+            Lighting.FogStart=1e9 Lighting.FogEnd=1e9
+        else
+            if savedFogStart then Lighting.FogStart=savedFogStart Lighting.FogEnd=savedFogEnd Lighting.FogColor=savedFogColor savedFogStart=nil savedFogEnd=nil savedFogColor=nil end
+        end
+        applyingFog=false
+    end
+    for _,prop in ipairs({"FogStart","FogEnd","FogColor"}) do
+        Lighting:GetPropertyChangedSignal(prop):Connect(function()
+            if not applyingFog and Hub.Get("NO_FOG",false) then applyFog() end
+        end)
+    end
+
+    -- No Grass: Terrain.Decoration toggle
+    local Terrain=workspace:FindFirstChildOfClass("Terrain")
+    local savedDeco=nil
+    local function applyGrass()
+        if not Terrain then return end
+        if Hub.Get("NO_GRASS",false) then
+            if savedDeco==nil then savedDeco=Terrain.Decoration end
+            Terrain.Decoration=false
+        else
+            if savedDeco~=nil then Terrain.Decoration=savedDeco savedDeco=nil end
+        end
+    end
+    if Terrain then
+        Terrain:GetPropertyChangedSignal("Decoration"):Connect(function()
+            if Hub.Get("NO_GRASS",false) and Terrain.Decoration~=false then applyGrass() end
+        end)
+    end
+    -- Poll depuis les toggles (les callbacks Row string-key set Hub.Config, on réagit sur changement)
+    RunS.Heartbeat:Connect(function()
+        if Hub.G.HAVOC_STOP then return end
+        applyFog() applyGrass()
+    end)
 
     -- ZOOM (hold key -> reduit FOV)
-    UI.Header(cW,0,220,COLW*2+8,"Zoom",90)
-    UI.Row(cW,LX+4,230,COLW-8,"Zoom Enabled","ZOOM_EN",false)
+    UI.Header(cW,0,268,COLW*2+8,"Zoom",90)
+    UI.Row(cW,LX+4,278,COLW-8,"Zoom Enabled","ZOOM_EN",false)
     local cam=Hub.cam
     local savedFOV=nil local zooming=false
     local function setZoom(on)
@@ -45,10 +90,10 @@ task.spawn(function()
         elseif not on and zooming then zooming=false Hub.G._ZOOM_ACTIVE=false if savedFOV then cam.FieldOfView=savedFOV savedFOV=nil end end
     end
     -- KeyBind callback = mode-aware (Hold par défaut, right-click sur touche pour changer)
-    UI.KeyBind(cW,RX+4,230,COLW-8,"Zoom Key","ZOOM_KEY","C",function(state)
+    UI.KeyBind(cW,RX+4,278,COLW-8,"Zoom Key","ZOOM_KEY","C",function(state)
         if Hub.Get("ZOOM_EN",false) then setZoom(state) end
     end,"Hold")
-    UI.Step(cW,0,264,COLW*2+8,"Zoom FOV","ZOOM_FOV",30,5,5,70)
+    UI.Step(cW,0,312,COLW*2+8,"Zoom FOV","ZOOM_FOV",30,5,5,70)
     -- Live update FOV pendant zoom si stepper change
     RunS.RenderStepped:Connect(function()
         if zooming and not Hub.G.HAVOC_STOP then cam.FieldOfView=Hub.Get("ZOOM_FOV",30) end
