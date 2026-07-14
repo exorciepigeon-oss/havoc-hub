@@ -103,12 +103,11 @@ task.spawn(function()
         -- SILENT AIM / NO SPREAD / TRACER sur shootRemote
         if self==shootRemote and n==3 then
             local a1,a2,a3=select(1,...),select(2,...),select(3,...)
-            -- Bullet tracer
+            -- Bullet tracer via Beam (smooth, rounded, effets via presets)
             if Hub.Get("TRACER_ON",false) and typeof(a2)=="Vector3" and typeof(a3)=="Vector3" then
                 task.spawn(function()
                     local dist=Hub.Get("TRACER_DIST",300)
-                    local dir=a3.Unit
-                    if dir~=dir then return end -- NaN check
+                    local dir=a3.Unit if dir~=dir then return end
                     local endPt=a2+dir*dist
                     local rp=RaycastParams.new() rp.FilterType=Enum.RaycastFilterType.Exclude
                     rp.FilterDescendantsInstances={Hub.lp.Character} rp.IgnoreWater=true
@@ -116,22 +115,65 @@ task.spawn(function()
                     if res then endPt=res.Position end
                     local len=(endPt-a2).Magnitude
                     if len<0.5 then return end
-                    local mid=(a2+endPt)/2
-                    local part=Instance.new("Part")
-                    part.Anchored=true part.CanCollide=false part.CanQuery=false part.CanTouch=false
-                    -- Effet: mapping du nom vers Enum.Material
-                    local matName=Hub.Get("TRACER_FX","Neon")
-                    local matMap={Neon=Enum.Material.Neon,ForceField=Enum.Material.ForceField,Glass=Enum.Material.Glass,Metal=Enum.Material.Metal,Plastic=Enum.Material.Plastic,Ice=Enum.Material.Ice,Sand=Enum.Material.Sand,Marble=Enum.Material.Marble,Foil=Enum.Material.Foil}
-                    part.Material=matMap[matName] or Enum.Material.Neon
-                    part.Color=Hub.Get("TRACER_C",Color3.fromRGB(255,255,0))
+
+                    -- Anchor part invisible + 2 Attachments
+                    local anchor=Instance.new("Part")
+                    anchor.Anchored=true anchor.CanCollide=false anchor.CanQuery=false anchor.CanTouch=false
+                    anchor.Transparency=1 anchor.Size=Vector3.new(0.1,0.1,0.1)
+                    anchor.CFrame=CFrame.new(a2)
+                    local att0=Instance.new("Attachment") att0.WorldPosition=a2 att0.Parent=anchor
+                    local att1=Instance.new("Attachment") att1.WorldPosition=endPt att1.Parent=anchor
+
+                    local beam=Instance.new("Beam")
+                    beam.Attachment0=att0 beam.Attachment1=att1
+                    beam.FaceCamera=true beam.LightInfluence=0
                     local thick=Hub.Get("TRACER_THICK",6)/10
-                    part.Size=Vector3.new(thick,thick,len)
-                    part.CFrame=CFrame.new(mid,endPt)
-                    part.Transparency=0
-                    part.Parent=workspace
+                    beam.Width0=thick beam.Width1=thick
+                    beam.Segments=12
+
+                    local col=Hub.Get("TRACER_C",Color3.fromRGB(255,80,255))
+                    local fx=Hub.Get("TRACER_FX","Neon")
+                    -- Preset par effet
+                    if fx=="Neon" then
+                        beam.LightEmission=1 beam.Color=ColorSequence.new(col)
+                    elseif fx=="Lightning" then
+                        beam.LightEmission=1 beam.Color=ColorSequence.new(col)
+                        beam.CurveSize0=(math.random()*2-1)*len*0.15
+                        beam.CurveSize1=(math.random()*2-1)*len*0.15
+                        beam.Segments=24
+                    elseif fx=="Wavy" then
+                        beam.LightEmission=1 beam.Color=ColorSequence.new(col)
+                        beam.CurveSize0=len*0.08 beam.CurveSize1=-len*0.08
+                    elseif fx=="ForceField" then
+                        beam.LightEmission=0.6 beam.Color=ColorSequence.new(col)
+                        beam.Texture="rbxasset://textures/particles/sparkles_main.dds" beam.TextureLength=2 beam.TextureSpeed=2
+                    elseif fx=="Fire" then
+                        beam.LightEmission=1
+                        beam.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(255,220,0)),ColorSequenceKeypoint.new(0.5,Color3.fromRGB(255,120,0)),ColorSequenceKeypoint.new(1,Color3.fromRGB(200,20,0))})
+                        beam.CurveSize0=len*0.05
+                    elseif fx=="Rainbow" then
+                        beam.LightEmission=1
+                        beam.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(255,0,0)),ColorSequenceKeypoint.new(0.2,Color3.fromRGB(255,200,0)),ColorSequenceKeypoint.new(0.4,Color3.fromRGB(0,255,0)),ColorSequenceKeypoint.new(0.6,Color3.fromRGB(0,200,255)),ColorSequenceKeypoint.new(0.8,Color3.fromRGB(80,0,255)),ColorSequenceKeypoint.new(1,Color3.fromRGB(255,0,220))})
+                    elseif fx=="Plasma" then
+                        beam.LightEmission=1
+                        beam.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(180,0,255)),ColorSequenceKeypoint.new(0.5,Color3.fromRGB(255,255,255)),ColorSequenceKeypoint.new(1,Color3.fromRGB(0,200,255))})
+                        beam.CurveSize0=len*0.1 beam.CurveSize1=-len*0.1
+                    elseif fx=="Ghost" then
+                        beam.LightEmission=0.5 beam.Color=ColorSequence.new(col)
+                        beam.Transparency=NumberSequence.new(0.6)
+                    else beam.LightEmission=1 beam.Color=ColorSequence.new(col) end
+                    beam.Parent=anchor
+                    anchor.Parent=workspace
+
+                    -- Fade manuel (Transparency = NumberSequence, non-tweenable direct)
                     local dur=Hub.Get("TRACER_DUR",500)/1000
-                    game:GetService("TweenService"):Create(part,TweenInfo.new(dur),{Transparency=1}):Play()
-                    task.wait(dur+0.05) if part.Parent then part:Destroy() end
+                    local start=tick()
+                    while tick()-start<dur do
+                        local t=(tick()-start)/dur
+                        beam.Transparency=NumberSequence.new(t)
+                        RunS.RenderStepped:Wait()
+                    end
+                    anchor:Destroy()
                 end)
             end
             if Hub.Get("SILENT_AIM",false) then
@@ -182,7 +224,7 @@ task.spawn(function()
 
     UI.Header(cW,0,172,COLW*2+8,"Bullet Tracer",180)
     UI.ToggleColor(cW,LX+4,182,COLW-8,"Bullet Tracer","TRACER_ON",false,"TRACER_C",Color3.fromRGB(255,255,0))
-    UI.Dropdown(cW,RX+4,182,COLW-8,"Effect","TRACER_FX","Neon",{"Neon","ForceField","Glass","Metal","Plastic","Ice","Sand","Marble","Foil"})
+    UI.Dropdown(cW,RX+4,182,COLW-8,"Effect","TRACER_FX","Neon",{"Neon","Lightning","Wavy","ForceField","Fire","Rainbow","Plasma","Ghost"})
     UI.Stepper(cW,LX+4,216,COLW-8,"Thickness","TRACER_THICK",6,1,1,30)
     UI.Stepper(cW,RX+4,216,COLW-8,"Duration (ms)","TRACER_DUR",500,50,100,2000)
     UI.Stepper(cW,0,250,COLW*2+8,"Max Distance","TRACER_DIST",300,25,50,1500)
