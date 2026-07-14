@@ -7,59 +7,28 @@ task.spawn(function()
     local UI=Hub.UI local Lighting=Hub.Lighting local RunS=Hub.RunS
     local cW=Hub.UI.Tabs.world.c
 
-    local savedAmb,savedFog,savedOut,savedBright=nil,nil,nil,nil
-    local ccEffect local applying=false
-    local function applyWorld()
-        if applying then return end applying=true
-        if Hub.Get("FULLBRIGHT",false) then
-            if not savedAmb then savedAmb=Lighting.Ambient savedFog=Lighting.FogEnd savedOut=Lighting.OutdoorAmbient savedBright=Lighting.Brightness end
-            Lighting.Ambient=Color3.new(1,1,1) Lighting.OutdoorAmbient=Color3.new(1,1,1) Lighting.FogEnd=1e6 Lighting.GlobalShadows=false Lighting.Brightness=2
-        else
-            if savedAmb then Lighting.Ambient=savedAmb Lighting.OutdoorAmbient=savedOut Lighting.FogEnd=savedFog Lighting.Brightness=savedBright Lighting.GlobalShadows=true savedAmb=nil end
-        end
-        Lighting.ClockTime=Hub.Get("TIME",14)
-        if not ccEffect or not ccEffect.Parent then ccEffect=Instance.new("ColorCorrectionEffect") ccEffect.Name="HavocHub_CC" ccEffect.Parent=Lighting end
-        ccEffect.TintColor=Hub.Get("WORLD_C",Color3.fromRGB(255,255,255))
-        applying=false
-    end
-    for _,prop in ipairs({"ClockTime","Ambient","OutdoorAmbient","FogEnd","Brightness","GlobalShadows"}) do
-        Lighting:GetPropertyChangedSignal(prop):Connect(function()
-            if applying or Hub.G.HAVOC_STOP then return end
-            if Hub.Get("FULLBRIGHT",false) or prop=="ClockTime" then applyWorld() end
-        end)
-    end
-
-    local COLW=232 local LX,RX=0,COLW+8
-    UI.Header(cW,0,130,COLW*2+8,"World FX",128)
-    UI.Row(cW,LX+4,140,COLW-8,"Full Bright",function() return Hub.Get("FULLBRIGHT",false) end,function(v) Hub.Set("FULLBRIGHT",v) applyWorld() end)
-    UI.Row(cW,RX+4,140,COLW-8,"World Color",function() return true end,function() end,function() return Hub.Get("WORLD_C",Color3.fromRGB(255,255,255)) end,function(c) Hub.Set("WORLD_C",c) applyWorld() end)
-    UI.Row(cW,LX+4,174,COLW-8,"No Fog","NO_FOG",false)
-    UI.Row(cW,RX+4,174,COLW-8,"No Grass","NO_GRASS",false)
-    UI.Step(cW,0,208,COLW*2+8,"Time",function() return Hub.Get("TIME",14) end,function(v) Hub.Set("TIME",v) applyWorld() end,1,0,24)
-
-    -- No Fog: 3-hook enforcement (property signal + polling)
+    local savedAmb,savedFogB,savedOut,savedBright=nil,nil,nil,nil
     local savedFogStart,savedFogEnd,savedFogColor=nil,nil,nil
-    local applyingFog=false
+    local ccEffect local applying=false
+    local Terrain=workspace:FindFirstChildOfClass("Terrain")
+    local savedDeco=nil
+
+    local function applyFullBright()
+        if Hub.Get("FULLBRIGHT",false) then
+            if not savedAmb then savedAmb=Lighting.Ambient savedOut=Lighting.OutdoorAmbient savedBright=Lighting.Brightness savedFogB=Lighting.GlobalShadows end
+            Lighting.Ambient=Color3.new(1,1,1) Lighting.OutdoorAmbient=Color3.new(1,1,1) Lighting.GlobalShadows=false Lighting.Brightness=2
+        else
+            if savedAmb then Lighting.Ambient=savedAmb Lighting.OutdoorAmbient=savedOut Lighting.Brightness=savedBright Lighting.GlobalShadows=(savedFogB~=nil and savedFogB or true) savedAmb=nil end
+        end
+    end
     local function applyFog()
-        if applyingFog or Hub.G.HAVOC_STOP then return end
-        applyingFog=true
         if Hub.Get("NO_FOG",false) then
             if not savedFogStart then savedFogStart=Lighting.FogStart savedFogEnd=Lighting.FogEnd savedFogColor=Lighting.FogColor end
             Lighting.FogStart=1e9 Lighting.FogEnd=1e9
         else
             if savedFogStart then Lighting.FogStart=savedFogStart Lighting.FogEnd=savedFogEnd Lighting.FogColor=savedFogColor savedFogStart=nil savedFogEnd=nil savedFogColor=nil end
         end
-        applyingFog=false
     end
-    for _,prop in ipairs({"FogStart","FogEnd","FogColor"}) do
-        Lighting:GetPropertyChangedSignal(prop):Connect(function()
-            if not applyingFog and Hub.Get("NO_FOG",false) then applyFog() end
-        end)
-    end
-
-    -- No Grass: Terrain.Decoration toggle
-    local Terrain=workspace:FindFirstChildOfClass("Terrain")
-    local savedDeco=nil
     local function applyGrass()
         if not Terrain then return end
         if Hub.Get("NO_GRASS",false) then
@@ -69,20 +38,46 @@ task.spawn(function()
             if savedDeco~=nil then Terrain.Decoration=savedDeco savedDeco=nil end
         end
     end
-    if Terrain then
-        Terrain:GetPropertyChangedSignal("Decoration"):Connect(function()
-            if Hub.Get("NO_GRASS",false) and Terrain.Decoration~=false then applyGrass() end
+    local function applyTime()
+        if Hub.Get("TIME_ON",false) then Lighting.ClockTime=Hub.Get("TIME",14) end
+        -- OFF: on ne touche pas ClockTime, le jeu garde son cycle
+    end
+    local function applyColor()
+        if not ccEffect or not ccEffect.Parent then ccEffect=Instance.new("ColorCorrectionEffect") ccEffect.Name="HavocHub_CC" ccEffect.Parent=Lighting end
+        ccEffect.TintColor=Hub.Get("WORLD_C",Color3.fromRGB(255,255,255))
+    end
+    local function applyWorld()
+        if applying then return end applying=true
+        applyFullBright() applyFog() applyGrass() applyTime() applyColor()
+        applying=false
+    end
+    -- Property-change guards (re-enforce si Havoc override)
+    for _,prop in ipairs({"Ambient","OutdoorAmbient","Brightness","GlobalShadows","FogStart","FogEnd","FogColor","ClockTime"}) do
+        Lighting:GetPropertyChangedSignal(prop):Connect(function()
+            if applying or Hub.G.HAVOC_STOP then return end
+            applyWorld()
         end)
     end
-    -- Poll depuis les toggles (les callbacks Row string-key set Hub.Config, on réagit sur changement)
+    if Terrain then Terrain:GetPropertyChangedSignal("Decoration"):Connect(function() if not applying and Hub.Get("NO_GRASS",false) then applyGrass() end end) end
+
+    local COLW=232 local LX,RX=0,COLW+8
+    UI.Header(cW,0,130,COLW*2+8,"Environment",180)
+    UI.Row(cW,LX+4,140,COLW-8,"Full Bright",function() return Hub.Get("FULLBRIGHT",false) end,function(v) Hub.Set("FULLBRIGHT",v) applyWorld() end)
+    UI.Row(cW,RX+4,140,COLW-8,"World Color",function() return true end,function() end,function() return Hub.Get("WORLD_C",Color3.fromRGB(255,255,255)) end,function(c) Hub.Set("WORLD_C",c) applyColor() end)
+    UI.Row(cW,LX+4,174,COLW-8,"No Fog",function() return Hub.Get("NO_FOG",false) end,function(v) Hub.Set("NO_FOG",v) applyFog() end)
+    UI.Row(cW,RX+4,174,COLW-8,"No Grass",function() return Hub.Get("NO_GRASS",false) end,function(v) Hub.Set("NO_GRASS",v) applyGrass() end)
+    UI.Row(cW,LX+4,208,COLW-8,"Custom Time",function() return Hub.Get("TIME_ON",false) end,function(v) Hub.Set("TIME_ON",v) applyTime() end)
+    UI.Step(cW,0,242,COLW*2+8,"Time",function() return Hub.Get("TIME",14) end,function(v) Hub.Set("TIME",v) applyTime() end,1,0,24)
+
+    -- Safety net: réapplique chaque Heartbeat pour battre Havoc en continu
     RunS.Heartbeat:Connect(function()
         if Hub.G.HAVOC_STOP then return end
-        applyFog() applyGrass()
+        applyFog() applyGrass() if Hub.Get("TIME_ON",false) then applyTime() end
     end)
 
     -- ZOOM (hold key -> reduit FOV)
-    UI.Header(cW,0,268,COLW*2+8,"Zoom",90)
-    UI.Row(cW,LX+4,278,COLW-8,"Zoom Enabled","ZOOM_EN",false)
+    UI.Header(cW,0,320,COLW*2+8,"Zoom",90)
+    UI.Row(cW,LX+4,330,COLW-8,"Zoom Enabled","ZOOM_EN",false)
     local cam=Hub.cam
     local savedFOV=nil local zooming=false
     local function setZoom(on)
@@ -90,10 +85,10 @@ task.spawn(function()
         elseif not on and zooming then zooming=false Hub.G._ZOOM_ACTIVE=false if savedFOV then cam.FieldOfView=savedFOV savedFOV=nil end end
     end
     -- KeyBind callback = mode-aware (Hold par défaut, right-click sur touche pour changer)
-    UI.KeyBind(cW,RX+4,278,COLW-8,"Zoom Key","ZOOM_KEY","C",function(state)
+    UI.KeyBind(cW,RX+4,330,COLW-8,"Zoom Key","ZOOM_KEY","C",function(state)
         if Hub.Get("ZOOM_EN",false) then setZoom(state) end
     end,"Hold")
-    UI.Step(cW,0,312,COLW*2+8,"Zoom FOV","ZOOM_FOV",30,5,5,70)
+    UI.Step(cW,0,364,COLW*2+8,"Zoom FOV","ZOOM_FOV",30,5,5,70)
     -- Live update FOV pendant zoom si stepper change
     RunS.RenderStepped:Connect(function()
         if zooming and not Hub.G.HAVOC_STOP then cam.FieldOfView=Hub.Get("ZOOM_FOV",30) end
