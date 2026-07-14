@@ -30,13 +30,13 @@ task.spawn(function()
     end
 
     local COLW=232 local LX,RX=0,COLW+8
-    UI.Header(cW,0,130,COLW*2+8,"WORLD FX",90)
+    UI.Header(cW,0,130,COLW*2+8,"World FX",90)
     UI.Row(cW,LX+4,140,COLW-8,"Full Bright",function() return Hub.Get("FULLBRIGHT",false) end,function(v) Hub.Set("FULLBRIGHT",v) applyWorld() end)
     UI.Row(cW,RX+4,140,COLW-8,"World Color",function() return true end,function() end,function() return Hub.Get("WORLD_C",Color3.fromRGB(255,255,255)) end,function(c) Hub.Set("WORLD_C",c) applyWorld() end)
     UI.Step(cW,0,174,COLW*2+8,"Time",function() return Hub.Get("TIME",14) end,function(v) Hub.Set("TIME",v) applyWorld() end,1,0,24)
 
     -- ZOOM (hold key -> reduit FOV)
-    UI.Header(cW,0,220,COLW*2+8,"ZOOM",90)
+    UI.Header(cW,0,220,COLW*2+8,"Zoom",90)
     UI.Row(cW,LX+4,230,COLW-8,"Zoom Enabled","ZOOM_EN",false)
     UI.KeyBind(cW,RX+4,230,COLW-8,"Zoom Key","ZOOM_KEY","C")
     UI.Step(cW,0,264,COLW*2+8,"Zoom FOV","ZOOM_FOV",30,5,5,70)

@@ -31,8 +31,8 @@ task.spawn(function()
         return out end
 
     -- UI tab
-    local cW=UI.AddTab("world","WORLD") local COLW=232 local LX,RX=0,COLW+8
-    UI.Header(cW,0,0,COLW*2+8,"LOOT ESP",120)
+    local cW=UI.AddTab("world","World") local COLW=232 local LX,RX=0,COLW+8
+    UI.Header(cW,0,0,COLW*2+8,"Loot ESP",120)
     UI.ToggleColor(cW,LX+4,10,COLW-8,"Weapons","LOOT_W",false,"LOOT_W_C",Color3.fromRGB(255,100,50))
     UI.ToggleColor(cW,RX+4,10,COLW-8,"Valuables","LOOT_V",false,"LOOT_V_C",Color3.fromRGB(255,215,0))
     UI.ToggleColor(cW,LX+4,44,COLW-8,"Simple Items","LOOT_S",false,"LOOT_S_C",Color3.fromRGB(120,200,255))

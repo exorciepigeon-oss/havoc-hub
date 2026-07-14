@@ -140,17 +140,14 @@ task.spawn(function()
     end)
     setreadonly(mt,true)
 
-    local cW=UI.AddTab("weapon","WEAPON") local COLW=232 local LX,RX=0,COLW+8
+    local cW=UI.AddTab("weapon","Weapon") local COLW=232 local LX,RX=0,COLW+8
     UI.Row(cW,LX,0,COLW,"Aimbot (right click)",function() return Hub.Get("AIMBOT",false) end,function(v) Hub.Set("AIMBOT",v) end)
     UI.ToggleColor(cW,RX,0,COLW,"FOV Circle","FOV_CIRCLE",false,"FOV_C",Color3.new(1,1,1))
-    UI.Row(cW,LX,34,COLW,"Silent Aim",function() return Hub.Get("SILENT_AIM",false) end,function(v) Hub.Set("SILENT_AIM",v) end)
-    UI.Row(cW,RX,34,COLW,"No Recoil",function() return Hub.Get("NO_RECOIL",false) end,function(v) Hub.Set("NO_RECOIL",v) end)
-    UI.Row(cW,LX,68,COLW,"No Spread",function() return Hub.Get("NO_SPREAD",false) end,function(v) Hub.Set("NO_SPREAD",v) end)
-    UI.Row(cW,RX,68,COLW,"No Sway",function() return Hub.Get("NO_SWAY",false) end,function(v) Hub.Set("NO_SWAY",v) end)
-    UI.Row(cW,LX,102,COLW,"Silent Aim Debug",function() return Hub.Get("DEBUG_SHOT",false) end,function(v) Hub.Set("DEBUG_SHOT",v) end)
-    UI.Row(cW,RX,102,COLW,"Silent Aim Camera Swap",function() return Hub.Get("CAM_SWAP",true) end,function(v) Hub.Set("CAM_SWAP",v) end)
-    UI.Stepper(cW,0,138,COLW*2+8,"FOV Size (px)","FOV_SIZE",150,10,20,600)
-    UI.Step(cW,0,174,COLW*2+8,"Aim Smooth x100",function() return math.floor(Hub.Get("AIM_SMOOTH",0.35)*100) end,function(v) Hub.Set("AIM_SMOOTH",v/100) end,5,5,100)
+    UI.Row(cW,LX,34,COLW,"No Recoil",function() return Hub.Get("NO_RECOIL",false) end,function(v) Hub.Set("NO_RECOIL",v) end)
+    UI.Row(cW,RX,34,COLW,"No Spread",function() return Hub.Get("NO_SPREAD",false) end,function(v) Hub.Set("NO_SPREAD",v) end)
+    UI.Row(cW,LX,68,COLW,"No Sway",function() return Hub.Get("NO_SWAY",false) end,function(v) Hub.Set("NO_SWAY",v) end)
+    UI.Stepper(cW,0,102,COLW*2+8,"FOV Size (px)","FOV_SIZE",150,10,20,600)
+    UI.Step(cW,0,138,COLW*2+8,"Aim Smooth x100",function() return math.floor(Hub.Get("AIM_SMOOTH",0.35)*100) end,function(v) Hub.Set("AIM_SMOOTH",v/100) end,5,5,100)
 
     Hub.On("shutdown",function() pcall(function() fovCirc:Remove() RunS:UnbindFromRenderStep("HubAim") end) end)
     Hub.RegisterModule("weapon",{Start=function() end})

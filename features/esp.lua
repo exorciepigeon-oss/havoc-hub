@@ -28,16 +28,16 @@ task.spawn(function()
         local bb=Instance.new("BillboardGui")
         bb.Adornee=hrp bb.AlwaysOnTop=true
         -- Pixel size = taille écran constante
-        bb.Size=UDim2.fromOffset(220,44)
+        bb.Size=UDim2.fromOffset(220,32)
         bb.StudsOffset=Vector3.new(0,2.5,0)
-        -- SizeOffset(-1) => BB entièrement au-dessus point d'ancrage à toute distance
         bb.SizeOffset=Vector2.new(0,-1)
         bb.LightInfluence=0 bb.MaxDistance=math.huge
         bb.Parent=adornRoot
-        local name=Instance.new("TextLabel") name.Size=UDim2.new(1,0,0.5,0) name.BackgroundTransparency=1
-        name.Font=Enum.Font.Gotham name.TextSize=13 name.TextColor3=Color3.new(1,1,1)
+        -- Stack tight: name 16px top, weap 14px directement en dessous
+        local name=Instance.new("TextLabel") name.Size=UDim2.new(1,0,0,16) name.Position=UDim2.new(0,0,0,0)
+        name.BackgroundTransparency=1 name.Font=Enum.Font.Gotham name.TextSize=13 name.TextColor3=Color3.new(1,1,1)
         name.TextStrokeTransparency=0 name.Text="" name.Parent=bb
-        local weap=Instance.new("TextLabel") weap.Size=UDim2.new(1,0,0.5,0) weap.Position=UDim2.new(0,0,0.5,0)
+        local weap=Instance.new("TextLabel") weap.Size=UDim2.new(1,0,0,14) weap.Position=UDim2.new(0,0,0,17)
         weap.BackgroundTransparency=1 weap.Font=Enum.Font.Gotham weap.TextSize=11 weap.TextColor3=Color3.new(1,1,1)
         weap.TextStrokeTransparency=0.3 weap.Text="" weap.Parent=bb
         return bb,name,weap
@@ -46,8 +46,8 @@ task.spawn(function()
     local function mkHpBB(m,hrp)
         local bb=Instance.new("BillboardGui")
         bb.Adornee=hrp bb.AlwaysOnTop=true
-        -- Hybrid: 8px de large fixe + 4 studs + 20px hauteur => toujours visible loin
-        bb.Size=UDim2.new(0,8,4,20)
+        -- Hybrid: 4px de large fixe + 4 studs + 20px hauteur
+        bb.Size=UDim2.new(0,4,4,20)
         bb.StudsOffset=Vector3.new(-2.5,0,0)
         bb.SizeOffset=Vector2.new(-0.5,0)
         bb.LightInfluence=0 bb.MaxDistance=math.huge
@@ -115,19 +115,20 @@ task.spawn(function()
     -- UI
     local cESP=UI.AddTab("esp","ESP")
     local COLW=232 local LX,RX=0,COLW+8
-    UI.Header(cESP,LX,0,COLW,"PLAYER",190)
+    UI.Header(cESP,LX,0,COLW,"Player",190)
     UI.ToggleColor(cESP,LX+4,10,COLW-8,"Box","P_BOX",true,"P_BOX_C",Color3.fromRGB(255,50,80),"P_BOX_A",1)
     UI.ToggleColor(cESP,LX+4,44,COLW-8,"Skeleton","P_SKEL",true,"P_SKEL_C",Color3.fromRGB(255,120,140),"P_SKEL_A",1)
     UI.ToggleColor(cESP,LX+4,78,COLW-8,"Chams","P_CHAMS",true,"P_CHAMS_C",Color3.fromRGB(255,50,80),"P_CHAMS_A",0.5)
     UI.ToggleColor(cESP,LX+4,112,COLW-8,"Health Bar","P_HP",true,"P_HP_C",Color3.fromRGB(0,255,80),"P_HP_A",1)
     UI.ToggleColor(cESP,LX+4,146,COLW-8,"Name + Weapon","P_NAME",true,"P_NAME_C",Color3.fromRGB(255,255,255),"P_NAME_A",1)
     UI.Header(cESP,RX,0,COLW,"NPC",190)
+    -- keep NPC uppercase (acronym)
     UI.ToggleColor(cESP,RX+4,10,COLW-8,"Box","N_BOX",true,"N_BOX_C",Color3.fromRGB(245,197,24),"N_BOX_A",1)
     UI.ToggleColor(cESP,RX+4,44,COLW-8,"Skeleton","N_SKEL",true,"N_SKEL_C",Color3.fromRGB(255,255,255),"N_SKEL_A",1)
     UI.ToggleColor(cESP,RX+4,78,COLW-8,"Chams","N_CHAMS",true,"N_CHAMS_C",Color3.fromRGB(245,197,24),"N_CHAMS_A",0.5)
     UI.ToggleColor(cESP,RX+4,112,COLW-8,"Health Bar","N_HP",true,"N_HP_C",Color3.fromRGB(0,255,80),"N_HP_A",1)
     UI.ToggleColor(cESP,RX+4,146,COLW-8,"Name + Weapon","N_NAME",true,"N_NAME_C",Color3.fromRGB(255,255,255),"N_NAME_A",1)
-    UI.Header(cESP,0,200,COLW*2+8,"CHAMS OCCLUSION SPLIT",56)
+    UI.Header(cESP,0,200,COLW*2+8,"Chams Occlusion Split",56)
     UI.ToggleColor(cESP,LX+4,210,COLW-8,"Player Occluded","P_OCC",false,"P_OCC_C",Color3.fromRGB(100,100,100),"P_OCC_A",0.5)
     UI.ToggleColor(cESP,RX+4,210,COLW-8,"NPC Occluded","N_OCC",false,"N_OCC_C",Color3.fromRGB(100,100,100),"N_OCC_A",0.5)
     UI.Stepper(cESP,0,262,COLW*2+8,"Distance","MAX_DIST",3400,100,100,8000)
