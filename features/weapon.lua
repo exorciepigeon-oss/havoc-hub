@@ -1,5 +1,7 @@
 -- HAVOC HUB : Weapon v6 (auto-detect remotes by signature on first call)
 local Hub=_G.HavocHub if not Hub then return end
+Hub.UnsafeKeys.INSTANT_RELOAD=true
+Hub.UnsafeKeys.AUTO_FILL=true
 task.spawn(function()
     while not Hub.UI or not Hub.UI.AddTab do task.wait(0.05) end
     local UI=Hub.UI local RunS=Hub.RunS local UIS=Hub.UIS local cam=Hub.cam
@@ -265,6 +267,57 @@ task.spawn(function()
     UI.Stepper(cW,0,250,COLW*2+8,"Max Distance","TRACER_DIST",300,25,50,1500)
     UI.Button(cW,0,286,COLW*2+8,"Test Tracer",function()
         if Hub._SpawnTracer then Hub._SpawnTracer(cam.CFrame.Position+cam.CFrame.RightVector*3,cam.CFrame.LookVector) end
+    end)
+
+    UI.Header(cW,0,320,COLW*2+8,"Weapon Assist",90)
+    UI.Row(cW,LX+4,330,COLW-8,"Instant Reload","INSTANT_RELOAD",false)
+    UI.Row(cW,RX+4,330,COLW-8,"Auto Fill Mags","AUTO_FILL",false)
+
+    -- Loop: cible tool équipé, force values de _data (Havoc client-side)
+    local watchedTool=nil local reloadConn=nil
+    local function forceCompleteReload(data)
+        local ammoC=data:FindFirstChild("ammoCurrent") local ammoS=data:FindFirstChild("ammoSize")
+        local cl=data:FindFirstChild("cl_complete") local sv=data:FindFirstChild("sv_complete")
+        local rl=data:FindFirstChild("reload") local rling=data:FindFirstChild("reloading")
+        if ammoC and ammoS then ammoC.Value=ammoS.Value end
+        if cl then cl.Value=true end if sv then sv.Value=true end
+        if rl then rl.Value=false end if rling then rling.Value=false end
+    end
+    local function bindTool(tool)
+        if watchedTool==tool then return end
+        watchedTool=tool
+        if reloadConn then reloadConn:Disconnect() reloadConn=nil end
+        if not tool then return end
+        local data=tool:FindFirstChild("_data")
+        if not data then return end
+        local rling=data:FindFirstChild("reloading")
+        if rling then
+            reloadConn=rling:GetPropertyChangedSignal("Value"):Connect(function()
+                if Hub.Get("INSTANT_RELOAD",false) and rling.Value then
+                    task.wait() -- laisse Havoc set le state
+                    forceCompleteReload(data)
+                end
+            end)
+        end
+    end
+    Hub.lp.CharacterAdded:Connect(function(char)
+        char.ChildAdded:Connect(function(c) if c:IsA("Tool") then bindTool(c) end end)
+        char.ChildRemoved:Connect(function(c) if c==watchedTool then bindTool(nil) end end)
+    end)
+    if Hub.lp.Character then
+        Hub.lp.Character.ChildAdded:Connect(function(c) if c:IsA("Tool") then bindTool(c) end end)
+        Hub.lp.Character.ChildRemoved:Connect(function(c) if c==watchedTool then bindTool(nil) end end)
+        local t=Hub.lp.Character:FindFirstChildOfClass("Tool") if t then bindTool(t) end
+    end
+    -- Auto fill heartbeat
+    RunS.Heartbeat:Connect(function()
+        if Hub.G.HAVOC_STOP then return end
+        if not Hub.Get("AUTO_FILL",false) then return end
+        local tool=Hub.lp.Character and Hub.lp.Character:FindFirstChildOfClass("Tool")
+        if not tool then return end
+        local data=tool:FindFirstChild("_data") if not data then return end
+        local ammoC=data:FindFirstChild("ammoCurrent") local ammoS=data:FindFirstChild("ammoSize")
+        if ammoC and ammoS and ammoC.Value~=ammoS.Value then ammoC.Value=ammoS.Value end
     end)
 
     Hub.On("shutdown",function() pcall(function() fovCirc:Remove() RunS:UnbindFromRenderStep("HubAim") end) end)
