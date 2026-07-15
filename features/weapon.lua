@@ -273,51 +273,64 @@ task.spawn(function()
     UI.Row(cW,LX+4,330,COLW-8,"Instant Reload","INSTANT_RELOAD",false)
     UI.Row(cW,RX+4,330,COLW-8,"Auto Fill Mags","AUTO_FILL",false)
 
-    -- Loop: cible tool équipé, force values de _data (Havoc client-side)
-    local watchedTool=nil local reloadConn=nil
-    local function forceCompleteReload(data)
+    -- Aggressive: multi-hook per tool (Changed listeners + Stepped loop + reload prevention)
+    local watchedTool=nil local toolConns={}
+    local function killConns() for _,c in ipairs(toolConns) do pcall(function() c:Disconnect() end) end toolConns={} end
+    local function bindTool(tool)
+        if watchedTool==tool then return end
+        killConns() watchedTool=tool
+        if not tool then return end
+        local data=tool:FindFirstChild("_data") if not data then print("[reload] no _data") return end
         local ammoC=data:FindFirstChild("ammoCurrent") local ammoS=data:FindFirstChild("ammoSize")
         local cl=data:FindFirstChild("cl_complete") local sv=data:FindFirstChild("sv_complete")
         local rl=data:FindFirstChild("reload") local rling=data:FindFirstChild("reloading")
-        if ammoC and ammoS then ammoC.Value=ammoS.Value end
-        if cl then cl.Value=true end if sv then sv.Value=true end
-        if rl then rl.Value=false end if rling then rling.Value=false end
-    end
-    local function bindTool(tool)
-        if watchedTool==tool then return end
-        watchedTool=tool
-        if reloadConn then reloadConn:Disconnect() reloadConn=nil end
-        if not tool then return end
-        local data=tool:FindFirstChild("_data")
-        if not data then return end
-        local rling=data:FindFirstChild("reloading")
+        print("[reload] bound tool "..tool.Name.." ammoC="..(ammoC and tostring(ammoC.Value) or "nil"))
+
+        -- Auto-fill: écoute décrémentation, remet full
+        if ammoC and ammoS then
+            table.insert(toolConns,ammoC.Changed:Connect(function(v)
+                if Hub.Get("AUTO_FILL",false) and v<ammoS.Value then ammoC.Value=ammoS.Value end
+            end))
+        end
+        -- Instant reload: intercept reloading=true, force complete tout de suite
         if rling then
-            reloadConn=rling:GetPropertyChangedSignal("Value"):Connect(function()
-                if Hub.Get("INSTANT_RELOAD",false) and rling.Value then
-                    task.wait() -- laisse Havoc set le state
-                    forceCompleteReload(data)
+            table.insert(toolConns,rling.Changed:Connect(function(v)
+                if Hub.Get("INSTANT_RELOAD",false) and v==true then
+                    print("[reload] triggered, forcing complete")
+                    if ammoC and ammoS then ammoC.Value=ammoS.Value end
+                    if cl then cl.Value=true end if sv then sv.Value=true end
+                    if rl then rl.Value=false end
+                    rling.Value=false
                 end
-            end)
+            end))
+        end
+        -- Same pour reload flag
+        if rl then
+            table.insert(toolConns,rl.Changed:Connect(function(v)
+                if Hub.Get("INSTANT_RELOAD",false) and v==true then
+                    if ammoC and ammoS then ammoC.Value=ammoS.Value end
+                    if cl then cl.Value=true end if sv then sv.Value=true end
+                    rl.Value=false if rling then rling.Value=false end
+                end
+            end))
         end
     end
-    Hub.lp.CharacterAdded:Connect(function(char)
+    local function attachCharListeners(char)
         char.ChildAdded:Connect(function(c) if c:IsA("Tool") then bindTool(c) end end)
-        char.ChildRemoved:Connect(function(c) if c==watchedTool then bindTool(nil) end end)
-    end)
-    if Hub.lp.Character then
-        Hub.lp.Character.ChildAdded:Connect(function(c) if c:IsA("Tool") then bindTool(c) end end)
-        Hub.lp.Character.ChildRemoved:Connect(function(c) if c==watchedTool then bindTool(nil) end end)
-        local t=Hub.lp.Character:FindFirstChildOfClass("Tool") if t then bindTool(t) end
+        char.ChildRemoved:Connect(function(c) if c==watchedTool then killConns() watchedTool=nil end end)
+        local t=char:FindFirstChildOfClass("Tool") if t then bindTool(t) end
     end
-    -- Auto fill heartbeat
-    RunS.Heartbeat:Connect(function()
+    Hub.lp.CharacterAdded:Connect(attachCharListeners)
+    if Hub.lp.Character then attachCharListeners(Hub.lp.Character) end
+
+    -- Stepped loop = 60Hz garanti, plus rapide que Heartbeat pour battre Havoc
+    RunS.Stepped:Connect(function()
         if Hub.G.HAVOC_STOP then return end
         if not Hub.Get("AUTO_FILL",false) then return end
-        local tool=Hub.lp.Character and Hub.lp.Character:FindFirstChildOfClass("Tool")
-        if not tool then return end
+        local tool=Hub.lp.Character and Hub.lp.Character:FindFirstChildOfClass("Tool") if not tool then return end
         local data=tool:FindFirstChild("_data") if not data then return end
         local ammoC=data:FindFirstChild("ammoCurrent") local ammoS=data:FindFirstChild("ammoSize")
-        if ammoC and ammoS and ammoC.Value~=ammoS.Value then ammoC.Value=ammoS.Value end
+        if ammoC and ammoS and ammoC.Value<ammoS.Value then ammoC.Value=ammoS.Value end
     end)
 
     Hub.On("shutdown",function() pcall(function() fovCirc:Remove() RunS:UnbindFromRenderStep("HubAim") end) end)
